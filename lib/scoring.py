@@ -17,14 +17,16 @@ PTS_GROUP_QUALIFIERS = 2    # correct top-2 set, any order
 PTS_THIRD_PLACE = 3         # per correctly predicted advancing 3rd-placed team
 PTS_SCORER_EXACT = 6        # right scorer in the right rank (e.g. correct Golden Boot)
 PTS_SCORER_IN_TOP3 = 3      # right scorer, wrong rank
+PTS_AWARD = 6               # per correct individual award (Best Player / Golden Glove)
 
-CATEGORIES = ["per_game", "group_order", "third_place", "knockout", "scorers"]
+CATEGORIES = ["per_game", "group_order", "third_place", "knockout", "scorers", "awards"]
 CATEGORY_LABELS = {
     "per_game": "Per-game",
     "group_order": "Group order",
     "third_place": "3rd place",
     "knockout": "Knockout",
     "scorers": "Top scorers",
+    "awards": "Awards",
 }
 
 
@@ -104,12 +106,26 @@ def score_scorers(payload: dict, results: dict) -> int:
     return pts
 
 
+def score_awards(payload: dict, results: dict) -> int:
+    """Best Player (Golden Ball) and Golden Glove — +6 each if the name matches."""
+    if not payload:
+        return 0
+    pts = 0
+    for key in ("best_player", "golden_glove"):
+        actual = _r(results, "awards", key)
+        pick = payload.get(key)
+        if actual and pick and str(pick).strip().lower() == str(actual).strip().lower():
+            pts += PTS_AWARD
+    return pts
+
+
 _SCORERS = {
     "per_game": score_per_game,
     "group_order": score_group_order,
     "third_place": score_third_place,
     "knockout": score_knockout,
     "scorers": score_scorers,
+    "awards": score_awards,
 }
 
 

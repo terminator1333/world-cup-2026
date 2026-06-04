@@ -29,7 +29,7 @@ teams = all_teams()
 
 tab_g, tab_m, tab_t, tab_k, tab_s = st.tabs(
     ["🥇 Group final tables", "⚽ Match scores", "🥉 3rd-place qualifiers",
-     "🏆 Knockout", "🥇 Top scorers"]
+     "🏆 Knockout", "🏅 Awards"]
 )
 
 # --- Group final standings ------------------------------------------------- #
@@ -109,13 +109,18 @@ with tab_k:
         db.save_result("knockout", "champion", None if champ == "—" else champ)
         st.success("Champion saved.")
 
-# --- Top scorers ----------------------------------------------------------- #
+# --- Awards (top scorers, best player, golden glove) ----------------------- #
 with tab_s:
-    st.caption("The actual top 3 goalscorers, in order (1st = Golden Boot).")
-    ex = (results.get(("scorers", "top3")) or ["", "", ""])
-    ex = (list(ex) + ["", "", ""])[:3]
+    st.caption("The actual top 3 goalscorers (1st = Golden Boot), plus Best Player & Golden Glove.")
+    ex = (list(results.get(("scorers", "top3")) or []) + ["", "", ""])[:3]
     labels = ["🥇 Golden Boot (1st)", "🥈 2nd", "🥉 3rd"]
     top3 = [st.text_input(labels[i], value=str(ex[i]), key=f"asc_{i}") for i in range(3)]
-    if st.button("💾 Save top scorers"):
+    bp = st.text_input("⭐ Best Player (Golden Ball)",
+                       value=str(results.get(("awards", "best_player")) or ""), key="abp")
+    gg = st.text_input("🧤 Golden Glove (best goalkeeper)",
+                       value=str(results.get(("awards", "golden_glove")) or ""), key="agg")
+    if st.button("💾 Save awards"):
         db.save_result("scorers", "top3", [t.strip() for t in top3])
-        st.success("Top scorers saved.")
+        db.save_result("awards", "best_player", bp.strip())
+        db.save_result("awards", "golden_glove", gg.strip())
+        st.success("Awards saved.")

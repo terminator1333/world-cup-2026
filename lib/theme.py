@@ -283,6 +283,11 @@ h1, h2, h3 { font-family: 'Anton', sans-serif !important; letter-spacing: .5px; 
 .ko-meta-img { width:100%; height:36px; object-fit:cover; border-radius:9px 3px 10px 4px;
   box-shadow:0 2px 7px #0009; border:1px solid #ffffff1f; }
 .ko-meta span { font-size:11px; font-weight:700; color:#aebbd6; text-align:center; line-height:1.25; }
+.ko-team { display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700; color:#dce6ff; }
+.ko-team span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ko-team small { color:#8ea0c4; font-weight:700; }
+.ko-adv { margin-top:5px; text-align:center; font-size:11px; font-weight:800;
+  color:var(--neon); letter-spacing:.3px; }
 
 /* Gallery tiles */
 .gal-tile { position:relative; border-radius:22px 8px 24px 9px; overflow:hidden;

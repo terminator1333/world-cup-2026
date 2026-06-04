@@ -82,6 +82,16 @@ def _ko_tree_html(per_game, ko):
     return f'<div class="rotree">{cols}</div>'
 
 
+def _group_tables(per_game):
+    gt = {}
+    for grp, gteams in groups.items():
+        gm = matches_for_group(grp)
+        sc = {m["id"]: per_game[m["id"]] for m in gm if per_game.get(m["id"])}
+        if len(sc) == len(gm):
+            gt[grp] = compute_table(gteams, gm, sc)
+    return gt
+
+
 def _score_rows(grp, per_game):
     out = ""
     for m in matches_for_group(grp):
@@ -97,41 +107,56 @@ def _score_rows(grp, per_game):
     return out
 
 
-for pid in chosen:
-    data = by_pid.get(pid, {})
-    with st.container(border=True):
-        st.markdown(f'<div class="apk-name">{names[pid]}</div>', unsafe_allow_html=True)
-        if not data:
-            st.caption("No predictions submitted yet.")
-            continue
-
-        per_game = data.get("per_game") or {}
-        group_order = data.get("group_order") or {}
-        ko = data.get("knockout") or {}
-
-        # champion banner
-        if ko.get("champion"):
-            st.markdown(
-                f'<div class="champ-banner">{flag_img(ko["champion"], 54)}'
-                f'<div><span class="champ-kick">CHAMPION PICK</span><br>{ko["champion"]} 🏆</div>'
-                f'</div>',
-                unsafe_allow_html=True,
+def _ko_score_rows(per_game, ko):
+    ranked, completed = build_qualifiers(per_game)
+    if completed < 12:
+        return ""
+    cur = seed_bracket(ranked)
+    scores = ko.get("scores") or {}
+    out = ""
+    for key, label, _pts in _KO_ROUNDS:
+        sr = [ko.get("champion")] if key == "champion" else (ko.get(key) or [])
+        matches = [(cur[2 * i], cur[2 * i + 1]) for i in range(len(cur) // 2)]
+        rows, winners = "", []
+        for idx, (a, b) in enumerate(matches):
+            winners.append(b if (b["team"] in sr and a["team"] not in sr) else a)
+            sc = scores.get(f"{key}_{idx}", {})
+            num = (f'{sc["hs"]} – {sc["as"]}' if sc.get("hs") is not None
+                   and sc.get("as") is not None else "– – –")
+            pens = ' <small>(pens)</small>' if sc.get("pens") else ""
+            rows += (
+                f'<div class="apk-score">{flag_img(a["team"], 20)}'
+                f'<span class="apk-tn">{a["team"]}</span><b class="apk-num">{num}</b>'
+                f'<span class="apk-tn rt">{b["team"]}</span>{flag_img(b["team"], 20)}{pens}</div>'
             )
+        if rows:
+            out += f'<div class="apk-grp">{label}</div>{rows}'
+        cur = winners
+    return out
 
-        # group standings (computed from their scores → same look as predicting)
-        group_tables = {}
-        for grp, gteams in groups.items():
-            gm = matches_for_group(grp)
-            scores = {m["id"]: per_game[m["id"]] for m in gm if per_game.get(m["id"])}
-            if len(scores) == len(gm):
-                group_tables[grp] = compute_table(gteams, gm, scores)
 
-        if group_tables or group_order:
-            st.markdown('<span class="wc-badge">🥇 GROUP STANDINGS</span>', unsafe_allow_html=True)
+def _person(pid):
+    st.markdown(f'<div class="apk-name">{names[pid]}</div>', unsafe_allow_html=True)
+
+
+tab_g, tab_k, tab_s = st.tabs(["🥇 Group stage", "🏆 Knockout", "⚽ Exact scores"])
+
+# --- Group stage ----------------------------------------------------------- #
+with tab_g:
+    for pid in chosen:
+        data = by_pid.get(pid, {})
+        with st.container(border=True):
+            _person(pid)
+            per_game = data.get("per_game") or {}
+            group_order = data.get("group_order") or {}
+            gt = _group_tables(per_game)
+            if not (gt or group_order):
+                st.caption("No group predictions yet.")
+                continue
             gcols = st.columns(2)
             for idx, (grp, gteams) in enumerate(groups.items()):
-                if grp in group_tables:
-                    order, stats = group_tables[grp]
+                if grp in gt:
+                    order, stats = gt[grp]
                 elif grp in group_order:
                     order, stats = group_order[grp], None
                 else:
@@ -139,54 +164,78 @@ for pid in chosen:
                 with gcols[idx % 2]:
                     st.markdown(f'<div class="apk-grp">GROUP {grp}</div>{_table_html(order, stats)}',
                                 unsafe_allow_html=True)
+            if gt:
+                thirds = best_thirds(gt)
+                if thirds:
+                    st.markdown('<span class="wc-badge">🥉 3RD-PLACE RACE</span>',
+                                unsafe_allow_html=True)
+                    rows = ""
+                    for i, (grp, t, s) in enumerate(thirds):
+                        cls, tag = ("adv-2", "✅ QUALIFIES") if i < 8 else ("adv-out", "OUT")
+                        rows += (
+                            f'<div class="tbl-row"><span class="pos-num">{i + 1}</span>'
+                            f'{flag_img(t, 22)}<span class="tbl-name">{t} <small>· {grp}</small></span>'
+                            f'<span class="adv-badge {cls}">{tag}</span>'
+                            f'<span class="tbl-gd">{s["GD"]:+d}</span>'
+                            f'<span class="tbl-pts">{s["Pts"]}<small>pt</small></span></div>'
+                        )
+                    st.markdown(f'<div class="mini-table">{rows}</div>', unsafe_allow_html=True)
 
-        # 3rd-place race
-        if group_tables:
-            thirds = best_thirds(group_tables)
-            if thirds:
-                st.markdown('<span class="wc-badge">🥉 3RD-PLACE RACE</span>', unsafe_allow_html=True)
-                rows = ""
-                for i, (grp, t, s) in enumerate(thirds):
-                    cls, tag = ("adv-2", "✅ QUALIFIES") if i < 8 else ("adv-out", "OUT")
-                    rows += (
-                        f'<div class="tbl-row"><span class="pos-num">{i + 1}</span>'
-                        f'{flag_img(t, 22)}<span class="tbl-name">{t} <small>· {grp}</small></span>'
-                        f'<span class="adv-badge {cls}">{tag}</span>'
-                        f'<span class="tbl-gd">{s["GD"]:+d}</span>'
-                        f'<span class="tbl-pts">{s["Pts"]}<small>pt</small></span></div>'
-                    )
-                st.markdown(f'<div class="mini-table">{rows}</div>', unsafe_allow_html=True)
-        elif data.get("third_place", {}).get("advancing"):
-            st.markdown('<span class="wc-badge">🥉 3RD-PLACE QUALIFIERS</span>', unsafe_allow_html=True)
-            st.markdown(" ".join(team_chip(t) for t in data["third_place"]["advancing"]),
-                        unsafe_allow_html=True)
+# --- Knockout -------------------------------------------------------------- #
+with tab_k:
+    for pid in chosen:
+        data = by_pid.get(pid, {})
+        with st.container(border=True):
+            _person(pid)
+            per_game = data.get("per_game") or {}
+            ko = data.get("knockout") or {}
+            if ko.get("champion"):
+                st.markdown(
+                    f'<div class="champ-banner">{flag_img(ko["champion"], 54)}'
+                    f'<div><span class="champ-kick">CHAMPION PICK</span><br>'
+                    f'{ko["champion"]} 🏆</div></div>', unsafe_allow_html=True)
+            tree = _ko_tree_html(per_game, ko) if ko else None
+            if tree:
+                st.markdown(tree, unsafe_allow_html=True)
+            elif not ko:
+                st.caption("No knockout bracket yet.")
 
-        # match scores
-        if per_game:
-            with st.expander(f"⚽ Match scores ({len(per_game)})"):
+            scorers = [s for s in (data.get("scorers") or {}).get("top3", []) if s]
+            awards = data.get("awards") or {}
+            if scorers or awards.get("best_player") or awards.get("golden_glove"):
+                st.markdown('<span class="wc-badge">🏅 AWARDS</span>', unsafe_allow_html=True)
+                medals = ["🥇", "🥈", "🥉"]
+                if scorers:
+                    st.markdown("**Top scorers:** "
+                                + " · ".join(f"{medals[i]} {s}" for i, s in enumerate(scorers)))
+                if awards.get("best_player"):
+                    st.markdown(f"⭐ **Best Player:** {awards['best_player']}")
+                if awards.get("golden_glove"):
+                    st.markdown(f"🧤 **Golden Glove:** {awards['golden_glove']}")
+
+# --- Exact scores ---------------------------------------------------------- #
+with tab_s:
+    for pid in chosen:
+        data = by_pid.get(pid, {})
+        with st.container(border=True):
+            _person(pid)
+            per_game = data.get("per_game") or {}
+            ko = data.get("knockout") or {}
+            shown = False
+            if per_game:
+                shown = True
+                st.markdown('<span class="wc-badge">⚽ GROUP MATCH SCORES</span>',
+                            unsafe_allow_html=True)
                 for grp in groups:
                     rows = _score_rows(grp, per_game)
                     if rows:
                         st.markdown(f'<div class="apk-grp">GROUP {grp}</div>{rows}',
                                     unsafe_allow_html=True)
-
-        # knockout bracket — full tree
-        if ko:
-            with st.expander("🏆 Knockout bracket", expanded=(who != "Everyone")):
-                tree = _ko_tree_html(per_game, ko)
-                if tree:
-                    st.markdown(tree, unsafe_allow_html=True)
-                else:
-                    for key, label in _KO_LABELS:
-                        if ko.get(key):
-                            st.markdown(f'<div class="apk-grp">{label}</div>'
-                                        + " ".join(team_chip(t) for t in ko[key]),
-                                        unsafe_allow_html=True)
-
-        # top scorers
-        scorers = (data.get("scorers") or {}).get("top3") or []
-        if any(scorers):
-            st.markdown('<span class="wc-badge">🥇 TOP SCORERS</span>', unsafe_allow_html=True)
-            medals = ["🥇", "🥈", "🥉"]
-            st.markdown(" &nbsp; ".join(f"{medals[i]} **{s}**" for i, s in enumerate(scorers) if s),
-                        unsafe_allow_html=True)
+            ko_rows = _ko_score_rows(per_game, ko) if ko else ""
+            if ko_rows:
+                shown = True
+                st.markdown('<span class="wc-badge">🏆 KNOCKOUT SCORES</span>',
+                            unsafe_allow_html=True)
+                st.markdown(ko_rows, unsafe_allow_html=True)
+            if not shown:
+                st.caption("No scorelines predicted yet.")

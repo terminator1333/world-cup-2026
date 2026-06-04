@@ -64,7 +64,7 @@ def save(category, payload, label):
 
 
 tab_g, tab_k, tab_s = st.tabs(
-    ["⚽ Groups & Matches", "🏆 Knockout bracket", "🥇 Top Scorers"])
+    ["⚽ Groups & Matches", "🏆 Knockout bracket", "🏅 Awards"])
 
 # --------------------------------------------------------------------------- #
 # Groups & Matches — predict scores; tables + qualifiers + 3rd-place auto-update
@@ -189,30 +189,41 @@ def _ko_meta(meta):
             f'</div>')
 
 
-def _tree_slot(a, b, key, i, saved, meta):
-    """One bracket tie with city banner, image flags + clickable team buttons."""
-    skey = f"kop_{pid}_{key}_{i}"
-    if skey not in st.session_state:
-        sr = ([saved.get("champion")] if key == "champion" else saved.get(key, []))
-        st.session_state[skey] = b["team"] if (b["team"] in sr and a["team"] not in sr) else a["team"]
-    if st.session_state[skey] not in (a["team"], b["team"]):
-        st.session_state[skey] = a["team"]
-    chosen = st.session_state[skey]
-
+def _tree_slot(a, b, key, i, saved, meta, scores_out):
+    """One bracket tie: enter the scoreline; the winner advances (pens if level)."""
+    base = f"kop_{pid}_{key}_{i}"
+    prev = (saved.get("scores") or {}).get(f"{key}_{i}", {})
     with st.container(border=True):
         st.markdown('<span class="kotie"></span>' + _ko_meta(meta), unsafe_allow_html=True)
+        goals = []
         for idx, t in enumerate((a, b)):
-            win = t["team"] == chosen
-            r = st.columns([0.6, 3.4])
+            r = st.columns([2.2, 1])
             r[0].markdown(
-                f'<div class="kof {"kwin" if win else ""}">{flag_img(t["team"], 22)}</div>',
+                f'<div class="ko-team">{flag_img(t["team"], 20)}'
+                f'<span>{t["team"]} <small>{t["grp"]}{t["pos"]}</small></span></div>',
                 unsafe_allow_html=True)
-            if r[1].button(f"{t['team']}  ·  {t['grp']}{t['pos']}", key=f"{skey}_{idx}",
-                           type=("primary" if win else "secondary"),
-                           use_container_width=True, disabled=LOCKED):
-                st.session_state[skey] = t["team"]
-                st.rerun()
-    return a if chosen == a["team"] else b
+            goals.append(int(r[1].number_input(
+                t["team"], 0, 30, value=int(prev.get("hs" if idx == 0 else "as") or 0),
+                key=f"{base}_g{idx}", label_visibility="collapsed", disabled=LOCKED)))
+        ga, gb = goals
+        pens = None
+        if ga > gb:
+            winner = a
+        elif gb > ga:
+            winner = b
+        else:
+            default = 1 if prev.get("pens") == b["team"] else 0
+            pw = st.radio("pens", [a["team"], b["team"]], index=default, horizontal=True,
+                          label_visibility="collapsed", key=f"{base}_pw", disabled=LOCKED)
+            winner = a if pw == a["team"] else b
+            pens = winner["team"]
+        st.markdown(f'<div class="ko-adv">✓ {winner["team"]} advance{" (pens)" if pens else ""}</div>',
+                    unsafe_allow_html=True)
+    rec = {"hs": ga, "as": gb}
+    if pens:
+        rec["pens"] = pens
+    scores_out[f"{key}_{i}"] = rec
+    return winner
 
 
 with tab_k:
@@ -234,18 +245,19 @@ with tab_k:
             hc.markdown(f'<div class="rnd-head">{label}<br><small>{ko_pts[key]} pts each</small></div>',
                         unsafe_allow_html=True)
         # the bracket itself — each column's ties are flex-distributed to centre them
-        payload, cur = {}, slotted
+        payload, cur, ko_scores = {}, slotted, {}
         cols = st.columns(len(rounds))
         for ci, (key, label) in enumerate(rounds):
             with cols[ci]:
                 matches = [(cur[2 * i], cur[2 * i + 1]) for i in range(len(cur) // 2)]
-                winners = [_tree_slot(a, b, key, i, saved, knockout_meta(ci, i))
+                winners = [_tree_slot(a, b, key, i, saved, knockout_meta(ci, i), ko_scores)
                            for i, (a, b) in enumerate(matches)]
                 if key == "champion":
                     payload["champion"] = winners[0]["team"]
                 else:
                     payload[key] = [w["team"] for w in winners]
                     cur = winners
+        payload["scores"] = ko_scores
 
         champ = payload["champion"]
         st.markdown(
@@ -259,21 +271,31 @@ with tab_k:
             save("knockout", payload, "Knockout bracket")
 
 # --------------------------------------------------------------------------- #
-# 5) Top scorers (Golden Boot race)
+# 5) Individual awards — top scorers, best player, golden glove
 # --------------------------------------------------------------------------- #
 with tab_s:
     st.markdown('<span class="wc-badge">🥇 TOP 3 GOALSCORERS</span>', unsafe_allow_html=True)
-    st.write("Name the **top 3 goalscorers** of the tournament, in order. "
-             "Right player **and** rank = **+6** · right player, wrong rank = **+3**. "
-             "Slot 1 is your **Golden Boot** pick.")
-    saved_s = (db.get_prediction(pid, "scorers") or {}).get("top3", ["", "", ""])
-    saved_s = (saved_s + ["", "", ""])[:3]
+    st.write("Name the **top 3 goalscorers**, in order. Right player **and** rank = **+6** · "
+             "right player, wrong rank = **+3**. Slot 1 is your **Golden Boot** pick.")
+    saved_s = ((db.get_prediction(pid, "scorers") or {}).get("top3", []) + ["", "", ""])[:3]
     medals = ["🥇 Golden Boot (1st)", "🥈 2nd top scorer", "🥉 3rd top scorer"]
-    top3 = []
-    for i in range(3):
-        top3.append(st.text_input(medals[i], value=saved_s[i], key=f"sc_{pid}_{i}",
-                                  max_chars=40, disabled=LOCKED,
-                                  placeholder="e.g. Kylian Mbappé"))
-    if st.button("💾 Save top scorers", disabled=LOCKED, key="save_scorers",
+    top3 = [st.text_input(medals[i], value=saved_s[i], key=f"sc_{pid}_{i}", max_chars=40,
+                          disabled=LOCKED, placeholder="e.g. Kylian Mbappé") for i in range(3)]
+
+    st.write("")
+    st.markdown('<span class="wc-badge">🏅 INDIVIDUAL AWARDS · +6 EACH</span>', unsafe_allow_html=True)
+    saved_a = db.get_prediction(pid, "awards") or {}
+    bp = st.text_input("⭐ Best Player (Golden Ball)", value=saved_a.get("best_player", ""),
+                       key=f"bp_{pid}", max_chars=40, disabled=LOCKED,
+                       placeholder="best player of the tournament")
+    gg = st.text_input("🧤 Golden Glove (best goalkeeper)", value=saved_a.get("golden_glove", ""),
+                       key=f"gg_{pid}", max_chars=40, disabled=LOCKED,
+                       placeholder="best goalkeeper")
+
+    if st.button("💾 Save awards", disabled=LOCKED, key="save_scorers",
                  use_container_width=True):
-        save("scorers", {"top3": [t.strip() for t in top3]}, "Top scorers")
+        db.save_prediction(pid, "scorers", {"top3": [t.strip() for t in top3]})
+        db.save_prediction(pid, "awards",
+                           {"best_player": bp.strip(), "golden_glove": gg.strip()})
+        st.success("✅ Awards saved!")
+        st.balloons()

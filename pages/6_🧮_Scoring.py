@@ -6,7 +6,7 @@ import streamlit as st
 
 from lib import theme
 from lib.data import CHAMPION_POINTS, KNOCKOUT_ROUNDS, group_matches, load_groups
-from lib.scoring import (PTS_GAME_EXACT, PTS_GAME_OUTCOME, PTS_GROUP_POSITION,
+from lib.scoring import (PTS_AWARD, PTS_GAME_EXACT, PTS_GAME_OUTCOME, PTS_GROUP_POSITION,
                          PTS_GROUP_QUALIFIERS, PTS_GROUP_WINNER, PTS_SCORER_EXACT,
                          PTS_SCORER_IN_TOP3, PTS_THIRD_PLACE)
 
@@ -25,6 +25,7 @@ max_pts = {
     "3rd-place": 8 * PTS_THIRD_PLACE,
     "Knockout": 16 * ko["r16"] + 8 * ko["qf"] + 4 * ko["sf"] + 2 * ko["final"] + CHAMPION_POINTS,
     "Top scorers": 3 * PTS_SCORER_EXACT,
+    "Awards": 2 * PTS_AWARD,
 }
 
 
@@ -78,6 +79,12 @@ cards([(f"+{PTS_SCORER_EXACT}", "Right scorer & right rank"),
 st.write(f"Name the top 3 goalscorers in order. Exact rank = **+{PTS_SCORER_EXACT}** "
          f"(your #1 is your Golden Boot pick); right player in the wrong slot still scores "
          f"**+{PTS_SCORER_IN_TOP3}**.")
+
+st.markdown('<span class="wc-badge">🏅 INDIVIDUAL AWARDS</span>', unsafe_allow_html=True)
+cards([(f"+{PTS_AWARD}", "Correct Best Player (Golden Ball)"),
+       (f"+{PTS_AWARD}", "Correct Golden Glove (best GK)")])
+st.write("Call the tournament's standout player and best goalkeeper — "
+         f"**+{PTS_AWARD}** each if you name them right.")
 
 st.divider()
 st.markdown('<span class="wc-badge">📊 LEADERBOARD</span>', unsafe_allow_html=True)
