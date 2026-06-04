@@ -1,0 +1,257 @@
+"""Make predictions — register, then fill any sections you like."""
+from __future__ import annotations
+
+import streamlit as st
+
+from datetime import date
+
+from lib import db, theme, util
+from lib.assets import find_asset, slugify
+from lib.data import (KNOCKOUT_ROUNDS, all_teams, knockout_meta, load_groups,
+                      matches_for_group, team_meta)
+from lib.flags import emoji_flag, flag_img, team_chip, text_on
+from lib.standings import best_thirds, compute_table
+from lib.bracket import build_qualifiers, seed_bracket
+
+st.set_page_config(page_title="Predictions · WC2026", page_icon="🔮", layout="wide")
+theme.inject()
+theme.hero("YOUR PREDICTIONS", "Pick as much or as little as you like — every section is optional.")
+
+LOCKED = util.is_locked()
+
+# --------------------------------------------------------------------------- #
+# Auth
+# --------------------------------------------------------------------------- #
+user = util.current_user()
+if user is None:
+    st.markdown('<span class="wc-badge">STEP 1 · WHO ARE YOU?</span>', unsafe_allow_html=True)
+    with st.form("auth"):
+        a, b = st.columns(2)
+        name = a.text_input("Your name", max_chars=24)
+        pin = b.text_input("PIN", type="password", max_chars=12,
+                            help="A short secret so only you can edit your picks.")
+        if st.form_submit_button("Enter / Register 🔓", use_container_width=True):
+            participant, err = db.upsert_participant(name, pin)
+            if err:
+                st.error(err)
+            else:
+                util.set_user(participant)
+                st.rerun()
+    st.stop()
+
+top = st.columns([3, 1])
+top[0].success(f"Signed in as **{user['name']}**")
+if top[1].button("Sign out", use_container_width=True):
+    util.logout()
+    st.rerun()
+
+if LOCKED:
+    st.warning(f"🔒 Predictions locked at kickoff ({util.lock_dt():%b %d, %Y %H:%M}). "
+               "You can view your picks but no longer edit them.")
+
+pid = user["id"]
+groups = load_groups()
+teams = all_teams()
+
+
+def save(category, payload, label):
+    if LOCKED:
+        st.error("Predictions are locked.")
+        return
+    db.save_prediction(pid, category, payload)
+    st.success(f"✅ {label} saved!")
+    st.balloons()
+
+
+tab_g, tab_k = st.tabs(["⚽ Groups & Matches", "🏆 Knockout bracket"])
+
+# --------------------------------------------------------------------------- #
+# Groups & Matches — predict scores; tables + qualifiers + 3rd-place auto-update
+# --------------------------------------------------------------------------- #
+_ADV = [("🥇 ADV", "adv-1"), ("🥈 ADV", "adv-2"), ("🥉 3RD", "adv-3"), ("❌ OUT", "adv-out")]
+
+
+def _mini_team(team, side):
+    return (f'<div class="mt {side}">{flag_img(team, 24)}'
+            f'<span class="mt-n">{team}</span></div>')
+
+
+def _table_html(order, stats):
+    rows = ""
+    for pos, t in enumerate(order):
+        label, cls = _ADV[pos]
+        s = stats[t]
+        rows += (
+            f'<div class="tbl-row"><span class="pos-num">{pos + 1}</span>'
+            f'{flag_img(t, 22)}<span class="tbl-name">{t}</span>'
+            f'<span class="adv-badge {cls}">{label}</span>'
+            f'<span class="tbl-gd">{s["GD"]:+d}</span>'
+            f'<span class="tbl-pts">{s["Pts"]}<small>pt</small></span></div>'
+        )
+    return f'<div class="mini-table">{rows}</div>'
+
+
+def _city_thumb(city):
+    url, ext = find_asset("cities", slugify(city))
+    if url and ext not in (".webm", ".mp4"):
+        return f'<img class="mthumb" src="{url}" alt="">'
+    return ""
+
+
+def _match_meta(m):
+    d = date.fromisoformat(m["date"])
+    return (f'<div class="m-meta">{_city_thumb(m["city"])}'
+            f'<span>{d:%b} {d.day} · {m["time"]} · {m["city"]} {m["city_flag"]}</span></div>')
+
+
+with tab_g:
+    saved_pg = db.get_prediction(pid, "per_game") or {}
+    picks = {}
+    group_tables = {}
+
+    gcols = st.columns(2)
+    for idx, (grp, gteams) in enumerate(groups.items()):
+        gmatches = matches_for_group(grp)
+        has_prev = any(saved_pg.get(m["id"]) for m in gmatches)
+        with gcols[idx % 2]:
+            with st.container(border=True):
+                head = st.columns([2.6, 1.4])
+                head[0].markdown(f'<span class="wc-badge">GROUP {grp}</span>',
+                                 unsafe_allow_html=True)
+                on = head[1].toggle("Predict", value=has_prev,
+                                    key=f"grp_on_{pid}_{grp}", disabled=LOCKED)
+                scores = {}
+                for m in gmatches:
+                    mid, prev = m["id"], saved_pg.get(m["id"], {})
+                    st.markdown(_match_meta(m), unsafe_allow_html=True)
+                    r = st.columns([2.3, 0.85, 0.2, 0.85, 2.3])
+                    r[0].markdown(_mini_team(m["home"], "home"), unsafe_allow_html=True)
+                    hs = r[1].number_input(m["home"], 0, 20, value=int(prev.get("hs") or 0),
+                                           key=f"hs_{mid}", label_visibility="collapsed",
+                                           disabled=LOCKED or not on)
+                    r[2].markdown("<div class='mt-dash'>–</div>", unsafe_allow_html=True)
+                    as_ = r[3].number_input(m["away"], 0, 20, value=int(prev.get("as") or 0),
+                                            key=f"as_{mid}", label_visibility="collapsed",
+                                            disabled=LOCKED or not on)
+                    r[4].markdown(_mini_team(m["away"], "away"), unsafe_allow_html=True)
+                    if on:
+                        scores[mid] = {"hs": int(hs), "as": int(as_)}
+                        picks[mid] = {"outcome": "H" if hs > as_ else "A" if as_ > hs else "D",
+                                      "hs": int(hs), "as": int(as_)}
+                if on:
+                    order, stats = compute_table(gteams, gmatches, scores)
+                    group_tables[grp] = (order, stats)
+                    st.markdown(_table_html(order, stats), unsafe_allow_html=True)
+
+    # 3rd-place race — auto-computed from the predicted groups
+    thirds = best_thirds(group_tables) if group_tables else []
+    if thirds:
+        st.write("")
+        st.markdown('<span class="wc-badge">🥉 3RD-PLACE RACE · TOP 8 QUALIFY</span>',
+                    unsafe_allow_html=True)
+        rows = ""
+        for i, (grp, t, s) in enumerate(thirds):
+            cls, tag = ("adv-2", "✅ QUALIFIES") if i < 8 else ("adv-out", "OUT")
+            rows += (
+                f'<div class="tbl-row"><span class="pos-num">{i + 1}</span>'
+                f'{flag_img(t, 22)}<span class="tbl-name">{t} <small>· {grp}</small></span>'
+                f'<span class="adv-badge {cls}">{tag}</span>'
+                f'<span class="tbl-gd">{s["GD"]:+d}</span>'
+                f'<span class="tbl-pts">{s["Pts"]}<small>pt</small></span></div>'
+            )
+        st.markdown(f'<div class="mini-table">{rows}</div>', unsafe_allow_html=True)
+
+    st.write("")
+    if st.button(f"💾 Save predictions  ·  {len(group_tables)} group(s), {len(picks)} matches",
+                 disabled=LOCKED, key="save_groups", use_container_width=True):
+        if LOCKED:
+            st.error("Predictions are locked.")
+        else:
+            go = {g: list(group_tables[g][0]) for g in group_tables}
+            adv = [t for (_g, t, _s) in best_thirds(group_tables)[:8]]
+            db.save_prediction(pid, "per_game", picks)
+            db.save_prediction(pid, "group_order", go)
+            db.save_prediction(pid, "third_place", {"advancing": adv})
+            st.success("✅ Saved games, group tables and 3rd-place qualifiers!")
+            st.balloons()
+
+# --------------------------------------------------------------------------- #
+# 4) Knockout bracket
+# --------------------------------------------------------------------------- #
+def _ko_meta(meta):
+    url, ext = find_asset("cities", slugify(meta["city"]))
+    img = (f'<img class="ko-meta-img" src="{url}">'
+           if url and ext not in (".webm", ".mp4") else "")
+    d = date.fromisoformat(meta["date"])
+    return (f'<div class="ko-meta">{img}'
+            f'<span>{d:%b} {d.day} · {meta["time"]}<br>{meta["city"]} {meta["city_flag"]}</span>'
+            f'</div>')
+
+
+def _tree_slot(a, b, key, i, saved, meta):
+    """One bracket tie with city banner, image flags + clickable team buttons."""
+    skey = f"kop_{pid}_{key}_{i}"
+    if skey not in st.session_state:
+        sr = ([saved.get("champion")] if key == "champion" else saved.get(key, []))
+        st.session_state[skey] = b["team"] if (b["team"] in sr and a["team"] not in sr) else a["team"]
+    if st.session_state[skey] not in (a["team"], b["team"]):
+        st.session_state[skey] = a["team"]
+    chosen = st.session_state[skey]
+
+    with st.container(border=True):
+        st.markdown('<span class="kotie"></span>' + _ko_meta(meta), unsafe_allow_html=True)
+        for idx, t in enumerate((a, b)):
+            win = t["team"] == chosen
+            r = st.columns([0.6, 3.4])
+            r[0].markdown(
+                f'<div class="kof {"kwin" if win else ""}">{flag_img(t["team"], 22)}</div>',
+                unsafe_allow_html=True)
+            if r[1].button(f"{t['team']}  ·  {t['grp']}{t['pos']}", key=f"{skey}_{idx}",
+                           type=("primary" if win else "secondary"),
+                           use_container_width=True, disabled=LOCKED):
+                st.session_state[skey] = t["team"]
+                st.rerun()
+    return a if chosen == a["team"] else b
+
+
+with tab_k:
+    saved = db.get_prediction(pid, "knockout") or {}
+    saved_pg = db.get_prediction(pid, "per_game") or {}
+    ranked, completed = build_qualifiers(saved_pg)
+
+    if completed < 12:
+        st.warning(f"⚽ Predict **all 12 groups** in the *Groups & Matches* tab to unlock your "
+                   f"bracket — **{completed}/12** complete.")
+        st.progress(completed / 12)
+    else:
+        slotted = seed_bracket(ranked)
+        rounds = [("r16", "ROUND OF 32"), ("qf", "ROUND OF 16"), ("sf", "QUARTER-FINALS"),
+                  ("final", "SEMI-FINALS"), ("champion", "FINAL")]
+        # round headers in their own aligned row
+        for hc, (key, label) in zip(st.columns(len(rounds)), rounds):
+            hc.markdown(f'<div class="rnd-head">{label}</div>', unsafe_allow_html=True)
+        # the bracket itself — each column's ties are flex-distributed to centre them
+        payload, cur = {}, slotted
+        cols = st.columns(len(rounds))
+        for ci, (key, label) in enumerate(rounds):
+            with cols[ci]:
+                matches = [(cur[2 * i], cur[2 * i + 1]) for i in range(len(cur) // 2)]
+                winners = [_tree_slot(a, b, key, i, saved, knockout_meta(ci, i))
+                           for i, (a, b) in enumerate(matches)]
+                if key == "champion":
+                    payload["champion"] = winners[0]["team"]
+                else:
+                    payload[key] = [w["team"] for w in winners]
+                    cur = winners
+
+        champ = payload["champion"]
+        st.markdown(
+            f'<div class="champ-banner">{flag_img(champ, 54)}'
+            f'<div><span class="champ-kick">WORLD CHAMPIONS</span><br>{champ} 🏆</div></div>',
+            unsafe_allow_html=True,
+        )
+        payload["top_scorer"] = st.text_input("⚽ Golden Boot pick (+5 pts, optional)",
+                                               value=saved.get("top_scorer", ""), disabled=LOCKED)
+        if st.button("💾 Save knockout bracket", disabled=LOCKED, key="save_ko",
+                     use_container_width=True):
+            save("knockout", payload, "Knockout bracket")

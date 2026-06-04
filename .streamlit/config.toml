@@ -1,0 +1,16 @@
+[theme]
+base = "dark"
+primaryColor = "#00E5A0"
+backgroundColor = "#0A0E1A"
+secondaryBackgroundColor = "#121A2E"
+textColor = "#EAF0FF"
+font = "sans serif"
+
+[server]
+headless = true
+# Serve files in ./static/ at the URL path app/static/... so we can use
+# AI-generated animated backgrounds & legend figures as CSS/video assets.
+enableStaticServing = true
+
+[browser]
+gatherUsageStats = false

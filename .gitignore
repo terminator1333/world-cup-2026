@@ -1,0 +1,19 @@
+# Streamlit secrets — never commit real keys
+.streamlit/secrets.toml
+
+# Local dev fallback store (used when Supabase isn't configured)
+.localdb.json
+
+# Local backup of original full-res PNGs (kept off GitHub)
+_image_backups/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+
+# OS
+.DS_Store
+Thumbs.db
