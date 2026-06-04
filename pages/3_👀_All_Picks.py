@@ -1,21 +1,15 @@
-"""Everyone's predictions, side by side. Hidden until predictions lock."""
+"""Everyone's predictions, side by side."""
 from __future__ import annotations
 
 import streamlit as st
 
-from lib import db, theme, util
+from lib import db, theme
 from lib.data import KNOCKOUT_ROUNDS, load_groups
 from lib.flags import flag_img, team_chip
 
 st.set_page_config(page_title="All Picks · WC2026", page_icon="👀", layout="wide")
 theme.inject()
-theme.hero("EVERYONE'S PICKS", "No peeking before kickoff — revealed when predictions lock.")
-
-if not util.is_locked():
-    st.warning(f"🙈 All picks stay hidden until predictions lock "
-               f"({util.lock_dt():%b %d, %Y %H:%M}) — no copying your friends!")
-    st.caption("Your own picks are always editable on the Predictions page.")
-    st.stop()
+theme.hero("EVERYONE'S PICKS", "See what everyone is predicting.")
 
 participants = db.list_participants()
 preds = db.all_predictions()
