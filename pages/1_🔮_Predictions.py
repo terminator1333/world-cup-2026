@@ -63,7 +63,8 @@ def save(category, payload, label):
     st.balloons()
 
 
-tab_g, tab_k = st.tabs(["⚽ Groups & Matches", "🏆 Knockout bracket"])
+tab_g, tab_k, tab_s = st.tabs(
+    ["⚽ Groups & Matches", "🏆 Knockout bracket", "🥇 Top Scorers"])
 
 # --------------------------------------------------------------------------- #
 # Groups & Matches — predict scores; tables + qualifiers + 3rd-place auto-update
@@ -227,9 +228,11 @@ with tab_k:
         slotted = seed_bracket(ranked)
         rounds = [("r16", "ROUND OF 32"), ("qf", "ROUND OF 16"), ("sf", "QUARTER-FINALS"),
                   ("final", "SEMI-FINALS"), ("champion", "FINAL")]
-        # round headers in their own aligned row
+        ko_pts = {"r16": "+2", "qf": "+3", "sf": "+5", "final": "+8", "champion": "+15"}
+        # round headers in their own aligned row, with the points each pick is worth
         for hc, (key, label) in zip(st.columns(len(rounds)), rounds):
-            hc.markdown(f'<div class="rnd-head">{label}</div>', unsafe_allow_html=True)
+            hc.markdown(f'<div class="rnd-head">{label}<br><small>{ko_pts[key]} pts each</small></div>',
+                        unsafe_allow_html=True)
         # the bracket itself — each column's ties are flex-distributed to centre them
         payload, cur = {}, slotted
         cols = st.columns(len(rounds))
@@ -250,8 +253,27 @@ with tab_k:
             f'<div><span class="champ-kick">WORLD CHAMPIONS</span><br>{champ} 🏆</div></div>',
             unsafe_allow_html=True,
         )
-        payload["top_scorer"] = st.text_input("⚽ Golden Boot pick (+5 pts, optional)",
-                                               value=saved.get("top_scorer", ""), disabled=LOCKED)
+        st.caption("⚽ Predict the Golden Boot & top scorers in the **Top Scorers** tab.")
         if st.button("💾 Save knockout bracket", disabled=LOCKED, key="save_ko",
                      use_container_width=True):
             save("knockout", payload, "Knockout bracket")
+
+# --------------------------------------------------------------------------- #
+# 5) Top scorers (Golden Boot race)
+# --------------------------------------------------------------------------- #
+with tab_s:
+    st.markdown('<span class="wc-badge">🥇 TOP 3 GOALSCORERS</span>', unsafe_allow_html=True)
+    st.write("Name the **top 3 goalscorers** of the tournament, in order. "
+             "Right player **and** rank = **+6** · right player, wrong rank = **+3**. "
+             "Slot 1 is your **Golden Boot** pick.")
+    saved_s = (db.get_prediction(pid, "scorers") or {}).get("top3", ["", "", ""])
+    saved_s = (saved_s + ["", "", ""])[:3]
+    medals = ["🥇 Golden Boot (1st)", "🥈 2nd top scorer", "🥉 3rd top scorer"]
+    top3 = []
+    for i in range(3):
+        top3.append(st.text_input(medals[i], value=saved_s[i], key=f"sc_{pid}_{i}",
+                                  max_chars=40, disabled=LOCKED,
+                                  placeholder="e.g. Kylian Mbappé"))
+    if st.button("💾 Save top scorers", disabled=LOCKED, key="save_scorers",
+                 use_container_width=True):
+        save("scorers", {"top3": [t.strip() for t in top3]}, "Top scorers")

@@ -324,6 +324,23 @@ html { font-size: 18px; }
 .ko-side, .ko-side small { font-size:14px !important; }
 [data-testid="stHorizontalBlock"]:has(.kotie) .stButton button { font-size:14px !important; }
 
+/* Read-only knockout tree (All Picks) */
+.rotree { display:flex; gap:10px; overflow-x:auto; padding:6px 2px; align-items:stretch; }
+.rocol { display:flex; flex-direction:column; justify-content:space-around; gap:8px;
+  min-width:132px; flex:1; }
+.rocol-head { font-family:'Anton'; font-size:11px; letter-spacing:.5px; text-align:center;
+  color:#9fb0d4; }
+.rocol-head small { color:#6f80a6; font-weight:600; }
+.rotie { background:#ffffff08; border:1px solid #ffffff16; border-radius:10px 4px 11px 5px;
+  padding:4px; }
+.rorow { display:flex; align-items:center; gap:6px; padding:3px 5px; border-radius:6px;
+  font-size:12px; font-weight:600; color:#90a0c4; }
+.rorow span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.rorow.win { background:linear-gradient(90deg,#00E5A033,transparent); color:#fff; font-weight:800; }
+.rocol.champ { justify-content:center; min-width:118px; }
+.rochamp { text-align:center; font-family:'Anton'; color:var(--gold); font-size:14px;
+  display:flex; flex-direction:column; align-items:center; gap:5px; }
+
 /* All-Picks read-only view */
 .apk-name { font-family:'Anton'; font-size:26px; color:#fff; line-height:1; margin-bottom:6px;
   background:linear-gradient(92deg,#fff,var(--neon)); -webkit-background-clip:text;
@@ -371,7 +388,21 @@ _SVG_DEFS = """
 
 def inject():
     st.markdown(_SVG_DEFS + _CSS, unsafe_allow_html=True)
+    _hide_admin_nav()
     _app_background()
+
+
+def _hide_admin_nav():
+    """Hide the Admin page from the sidebar unless the admin user is signed in."""
+    from .util import secret
+    admin_name = (secret("ADMIN_NAME", "eyal") or "eyal").strip().lower()
+    user = st.session_state.get("participant") or {}
+    is_admin = user.get("name", "").strip().lower() == admin_name
+    if not is_admin:
+        st.markdown(
+            '<style>[data-testid="stSidebarNav"] a[href*="Admin"]{display:none!important;}</style>',
+            unsafe_allow_html=True,
+        )
 
 
 def _app_background():

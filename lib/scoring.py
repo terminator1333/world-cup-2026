@@ -15,14 +15,16 @@ PTS_GROUP_WINNER = 5
 PTS_GROUP_POSITION = 3      # per exact non-winner position
 PTS_GROUP_QUALIFIERS = 2    # correct top-2 set, any order
 PTS_THIRD_PLACE = 3         # per correctly predicted advancing 3rd-placed team
-PTS_TOP_SCORER = 5
+PTS_SCORER_EXACT = 6        # right scorer in the right rank (e.g. correct Golden Boot)
+PTS_SCORER_IN_TOP3 = 3      # right scorer, wrong rank
 
-CATEGORIES = ["per_game", "group_order", "third_place", "knockout"]
+CATEGORIES = ["per_game", "group_order", "third_place", "knockout", "scorers"]
 CATEGORY_LABELS = {
     "per_game": "Per-game",
     "group_order": "Group order",
     "third_place": "3rd place",
     "knockout": "Knockout",
+    "scorers": "Top scorers",
 }
 
 
@@ -81,11 +83,24 @@ def score_knockout(payload: dict, results: dict) -> int:
     champ_actual = _r(results, "knockout", "champion")
     if champ_actual and payload.get("champion") == champ_actual:
         pts += CHAMPION_POINTS
+    return pts
 
-    ts_actual = _r(results, "knockout", "top_scorer")
-    if ts_actual and payload.get("top_scorer") and \
-            payload["top_scorer"].strip().lower() == str(ts_actual).strip().lower():
-        pts += PTS_TOP_SCORER
+
+def score_scorers(payload: dict, results: dict) -> int:
+    """Top-3 goalscorers: right scorer + right rank = +6, right scorer wrong rank = +3."""
+    actual = _r(results, "scorers", "top3")
+    if not actual or not payload:
+        return 0
+    actual_norm = [str(a).strip().lower() for a in actual if a]
+    pts = 0
+    for i, name in enumerate(payload.get("top3", [])):
+        if not name:
+            continue
+        n = str(name).strip().lower()
+        if i < len(actual_norm) and n == actual_norm[i]:
+            pts += PTS_SCORER_EXACT
+        elif n in actual_norm:
+            pts += PTS_SCORER_IN_TOP3
     return pts
 
 
@@ -94,6 +109,7 @@ _SCORERS = {
     "group_order": score_group_order,
     "third_place": score_third_place,
     "knockout": score_knockout,
+    "scorers": score_scorers,
 }
 
 

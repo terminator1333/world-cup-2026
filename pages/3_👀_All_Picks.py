@@ -4,6 +4,7 @@ from __future__ import annotations
 import streamlit as st
 
 from lib import db, theme
+from lib.bracket import build_qualifiers, seed_bracket
 from lib.data import load_groups, matches_for_group
 from lib.flags import flag_img, team_chip
 from lib.standings import best_thirds, compute_table
@@ -47,6 +48,38 @@ def _table_html(order, stats=None):
             f'<span class="tbl-gd">{gd}</span><span class="tbl-pts">{pts}</span></div>'
         )
     return f'<div class="mini-table">{rows}</div>'
+
+
+_KO_ROUNDS = [("r16", "ROUND OF 32", "+2"), ("qf", "ROUND OF 16", "+3"),
+              ("sf", "QUARTER-FINALS", "+5"), ("final", "SEMI-FINALS", "+8"),
+              ("champion", "FINAL", "+15")]
+
+
+def _ko_tree_html(per_game, ko):
+    """Read-only bracket tree from a player's group scores + knockout picks."""
+    ranked, completed = build_qualifiers(per_game)
+    if completed < 12:
+        return None
+    cur = seed_bracket(ranked)
+    cols = ""
+    for key, label, pts in _KO_ROUNDS:
+        sr = [ko.get("champion")] if key == "champion" else (ko.get(key) or [])
+        matches = [(cur[2 * i], cur[2 * i + 1]) for i in range(len(cur) // 2)]
+        ties, winners = "", []
+        for a, b in matches:
+            win = b if (b["team"] in sr and a["team"] not in sr) else a
+            winners.append(win)
+            rows = "".join(
+                f'<div class="rorow {"win" if t["team"] == win["team"] else ""}">'
+                f'{flag_img(t["team"], 18)}<span>{t["team"]}</span></div>' for t in (a, b))
+            ties += f'<div class="rotie">{rows}</div>'
+        cols += (f'<div class="rocol"><div class="rocol-head">{label}<br>'
+                 f'<small>{pts} pts</small></div>{ties}</div>')
+        cur = winners
+    champ = cur[0]["team"]
+    cols += (f'<div class="rocol champ"><div class="rocol-head">CHAMPION</div>'
+             f'<div class="rochamp">{flag_img(champ, 40)}{champ} 🏆</div></div>')
+    return f'<div class="rotree">{cols}</div>'
 
 
 def _score_rows(grp, per_game):
@@ -137,13 +170,23 @@ for pid in chosen:
                         st.markdown(f'<div class="apk-grp">GROUP {grp}</div>{rows}',
                                     unsafe_allow_html=True)
 
-        # knockout bracket
+        # knockout bracket — full tree
         if ko:
-            with st.expander("🏆 Knockout run"):
-                for key, label in _KO_LABELS:
-                    if ko.get(key):
-                        st.markdown(f'<div class="apk-grp">{label}</div>'
-                                    + " ".join(team_chip(t) for t in ko[key]),
-                                    unsafe_allow_html=True)
-                if ko.get("top_scorer"):
-                    st.markdown(f"**⚽ Golden Boot:** {ko['top_scorer']}")
+            with st.expander("🏆 Knockout bracket", expanded=(who != "Everyone")):
+                tree = _ko_tree_html(per_game, ko)
+                if tree:
+                    st.markdown(tree, unsafe_allow_html=True)
+                else:
+                    for key, label in _KO_LABELS:
+                        if ko.get(key):
+                            st.markdown(f'<div class="apk-grp">{label}</div>'
+                                        + " ".join(team_chip(t) for t in ko[key]),
+                                        unsafe_allow_html=True)
+
+        # top scorers
+        scorers = (data.get("scorers") or {}).get("top3") or []
+        if any(scorers):
+            st.markdown('<span class="wc-badge">🥇 TOP SCORERS</span>', unsafe_allow_html=True)
+            medals = ["🥇", "🥈", "🥉"]
+            st.markdown(" &nbsp; ".join(f"{medals[i]} **{s}**" for i, s in enumerate(scorers) if s),
+                        unsafe_allow_html=True)
