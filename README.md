@@ -61,7 +61,10 @@ this mode — that needs Supabase, below.)
   are scheduled approximations within the official window — edit `lib/data.py` to
   match the official fixture list exactly if you like.
 - Uses country **flags** (via [flagcdn.com](https://flagcdn.com)) and national colours
-  rather than copyrighted federation crests.<img width="1600" height="893" alt="mexico-city" src="https://github.com/user-attachments/assets/a04c951c-914e-4e3a-ba6b-51fb77667294" />
+  rather than copyrighted federation crests.
+  
+  <img width="1600" height="893" alt="atlanta" src="https://github.com/user-attachments/assets/af86e0c2-9bfb-4df3-82f1-0f23d187b2b1" />
+
 
 - **City photos** are license-clean: by default the *Cities & Legends* page pulls free
   Creative-Commons images from [Openverse](https://openverse.org) (credited on each card).
