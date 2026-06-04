@@ -1,5 +1,9 @@
 # 🏆 World Cup 2026 Prediction Pool
 
+<img width="1600" height="893" alt="mexico-city" src="https://github.com/user-attachments/assets/5a3f7820-ac50-435f-aef5-a9fb96a3c57c" />
+
+
+
 A vibrant, FIFA-game-styled Streamlit app where you and your friends predict the
 2026 FIFA World Cup (USA · Canada · Mexico, June 11 – July 19, 2026) and compete
 on a live, auto-scored leaderboard. No local server to babysit — it runs on
@@ -13,6 +17,8 @@ on a live, auto-scored leaderboard. No local server to babysit — it runs on
 
 Points are awarded automatically (tunable in `lib/scoring.py`) and everyone's
 picks are revealed once predictions lock at kickoff.
+
+<img width="1600" height="893" alt="vancouver" src="https://github.com/user-attachments/assets/b43bfed4-61b3-43a0-8002-f06f717ae6a5" />
 
 ## Run locally
 ```bash
@@ -55,9 +61,15 @@ this mode — that needs Supabase, below.)
   are scheduled approximations within the official window — edit `lib/data.py` to
   match the official fixture list exactly if you like.
 - Uses country **flags** (via [flagcdn.com](https://flagcdn.com)) and national colours
-  rather than copyrighted federation crests.
+  rather than copyrighted federation crests.<img width="1600" height="893" alt="mexico-city" src="https://github.com/user-attachments/assets/a04c951c-914e-4e3a-ba6b-51fb77667294" />
+
 - **City photos** are license-clean: by default the *Cities & Legends* page pulls free
   Creative-Commons images from [Openverse](https://openverse.org) (credited on each card).
   For sharper skylines, add a free `UNSPLASH_ACCESS_KEY` (see `secrets.toml.example`) —
   get one at [unsplash.com/developers](https://unsplash.com/developers). If a source is
   unreachable it falls back to a free placeholder so cards never break.
+
+
+  <img width="2816" height="1536" alt="pele" src="https://github.com/user-attachments/assets/d65edefc-cc04-4e2a-ae8f-8941a928a5b5" />
+
+
