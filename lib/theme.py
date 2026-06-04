@@ -324,6 +324,18 @@ html { font-size: 18px; }
 .ko-side, .ko-side small { font-size:14px !important; }
 [data-testid="stHorizontalBlock"]:has(.kotie) .stButton button { font-size:14px !important; }
 
+/* All-Picks read-only view */
+.apk-name { font-family:'Anton'; font-size:26px; color:#fff; line-height:1; margin-bottom:6px;
+  background:linear-gradient(92deg,#fff,var(--neon)); -webkit-background-clip:text;
+  background-clip:text; color:transparent; }
+.apk-grp { font-family:'Anton'; font-size:13px; letter-spacing:1px; color:#9fb0d4;
+  margin:10px 0 4px; }
+.apk-score { display:flex; align-items:center; gap:9px; padding:5px 2px;
+  border-bottom:1px solid #ffffff12; }
+.apk-tn { flex:1; font-weight:700; font-size:14px; color:#dce6ff; }
+.apk-tn.rt { text-align:right; }
+.apk-num { font-family:'Anton'; font-size:17px; color:#fff; }
+
 /* Match meta line: date · time · city + thumbnail */
 .m-meta { display:flex; align-items:center; gap:10px; margin:7px 0 3px; }
 .m-meta .mthumb { width:42px; height:28px; object-fit:cover; border-radius:7px;
