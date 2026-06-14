@@ -1,11 +1,13 @@
 """Everyone's predictions, side by side — styled like the predicting view."""
 from __future__ import annotations
 
+from datetime import date as _date
+
 import streamlit as st
 
 from lib import db, theme
 from lib.bracket import build_qualifiers, seed_bracket
-from lib.data import load_groups, matches_for_group
+from lib.data import group_matches, load_groups, matches_for_group
 from lib.flags import flag_img, team_chip
 from lib.standings import best_thirds, compute_table
 
@@ -92,12 +94,17 @@ def _group_tables(per_game):
     return gt
 
 
-def _score_rows(grp, per_game):
-    out = ""
-    for m in matches_for_group(grp):
+def _score_rows_by_date(per_game):
+    """Predicted group scorelines across all groups, ordered by kickoff date."""
+    out, cur_date = "", None
+    for m in group_matches():            # already sorted by (date, group)
         p = per_game.get(m["id"])
         if not p:
             continue
+        if m["date"] != cur_date:
+            cur_date = m["date"]
+            d = _date.fromisoformat(m["date"])
+            out += f'<div class="apk-grp">{d:%a, %b} {d.day}</div>'
         out += (
             f'<div class="apk-score">{flag_img(m["home"], 20)}'
             f'<span class="apk-tn">{m["home"]}</span>'
@@ -222,15 +229,12 @@ with tab_s:
             per_game = data.get("per_game") or {}
             ko = data.get("knockout") or {}
             shown = False
-            if per_game:
+            rows = _score_rows_by_date(per_game) if per_game else ""
+            if rows:
                 shown = True
                 st.markdown('<span class="wc-badge">⚽ GROUP MATCH SCORES</span>',
                             unsafe_allow_html=True)
-                for grp in groups:
-                    rows = _score_rows(grp, per_game)
-                    if rows:
-                        st.markdown(f'<div class="apk-grp">GROUP {grp}</div>{rows}',
-                                    unsafe_allow_html=True)
+                st.markdown(rows, unsafe_allow_html=True)
             ko_rows = _ko_score_rows(per_game, ko) if ko else ""
             if ko_rows:
                 shown = True

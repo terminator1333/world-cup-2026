@@ -52,6 +52,14 @@ def knockout_meta(round_idx: int, match_idx: int) -> dict:
 # Standard 4-team round-robin pairing order (indices into a group's team list).
 _RR_PAIRS = [(0, 1), (2, 3), (0, 2), (1, 3), (0, 3), (1, 2)]
 
+# Manual corrections to the synthetic schedule, keyed by match id. Times are
+# the real kickoff converted to the app's clock (Israel time), so the lock
+# fires when the game actually starts. Sourced from the official 2026 schedule.
+_SCHEDULE_OVERRIDES = {
+    "E1-01": {"date": "2026-06-14", "time": "21:00"},  # Germany v Curaçao  (13:00 CDT, Houston)
+    "F1-01": {"date": "2026-06-14", "time": "23:00"},  # Netherlands v Japan (15:00 CDT, Arlington)
+}
+
 # Knockout rounds we let people predict, with their size and per-team points.
 KNOCKOUT_ROUNDS = [
     ("r16", "Round of 16", 16, 2),
@@ -108,6 +116,8 @@ def group_matches() -> list[dict]:
                 "city_flag": flag,
             })
             city_idx += 1
+    for m in matches:
+        m.update(_SCHEDULE_OVERRIDES.get(m["id"], {}))
     matches.sort(key=lambda m: (m["date"], m["group"]))
     return matches
 
