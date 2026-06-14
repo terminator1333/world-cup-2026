@@ -8,7 +8,7 @@ from datetime import date
 from lib import db, theme, util
 from lib.assets import find_asset, slugify
 from lib.data import (KNOCKOUT_ROUNDS, all_teams, knockout_meta, load_groups,
-                      matches_for_group, team_meta)
+                      match_played, matches_for_group, team_meta)
 from lib.flags import emoji_flag, flag_img, team_chip, text_on
 from lib.standings import best_thirds, compute_table
 from lib.bracket import build_qualifiers, seed_bracket
@@ -45,9 +45,25 @@ if top[1].button("Sign out", use_container_width=True):
     util.logout()
     st.rerun()
 
-if LOCKED:
+# Some participants keep editing fixtures that haven't kicked off yet.
+EDITOR = util.is_unplayed_editor(user)
+
+if LOCKED and not EDITOR:
     st.warning(f"🔒 Predictions locked at kickoff ({util.lock_dt():%b %d, %Y %H:%M}). "
                "You can view your picks but no longer edit them.")
+elif LOCKED and EDITOR:
+    st.info("✏️ You can still edit predictions for games that **haven't kicked off yet**. "
+            "Matches that have already started are locked.")
+
+
+def _match_locked(m) -> bool:
+    """A fixture is editable while unlocked, or — for editors — until kickoff."""
+    if not LOCKED:
+        return False
+    if EDITOR and not match_played(m):
+        return False
+    return True
+
 
 pid = user["id"]
 groups = load_groups()
@@ -55,7 +71,7 @@ teams = all_teams()
 
 
 def save(category, payload, label):
-    if LOCKED:
+    if LOCKED and not EDITOR:
         st.error("Predictions are locked.")
         return
     db.save_prediction(pid, category, payload)
@@ -114,26 +130,28 @@ with tab_g:
     for idx, (grp, gteams) in enumerate(groups.items()):
         gmatches = matches_for_group(grp)
         has_prev = any(saved_pg.get(m["id"]) for m in gmatches)
+        group_editable = any(not _match_locked(m) for m in gmatches)
         with gcols[idx % 2]:
             with st.container(border=True):
                 head = st.columns([2.6, 1.4])
                 head[0].markdown(f'<span class="wc-badge">GROUP {grp}</span>',
                                  unsafe_allow_html=True)
                 on = head[1].toggle("Predict", value=has_prev,
-                                    key=f"grp_on_{pid}_{grp}", disabled=LOCKED)
+                                    key=f"grp_on_{pid}_{grp}", disabled=not group_editable)
                 scores = {}
                 for m in gmatches:
                     mid, prev = m["id"], saved_pg.get(m["id"], {})
+                    m_locked = _match_locked(m)
                     st.markdown(_match_meta(m), unsafe_allow_html=True)
                     r = st.columns([2.3, 0.85, 0.2, 0.85, 2.3])
                     r[0].markdown(_mini_team(m["home"], "home"), unsafe_allow_html=True)
                     hs = r[1].number_input(m["home"], 0, 20, value=int(prev.get("hs") or 0),
                                            key=f"hs_{mid}", label_visibility="collapsed",
-                                           disabled=LOCKED or not on)
+                                           disabled=m_locked or not on)
                     r[2].markdown("<div class='mt-dash'>–</div>", unsafe_allow_html=True)
                     as_ = r[3].number_input(m["away"], 0, 20, value=int(prev.get("as") or 0),
                                             key=f"as_{mid}", label_visibility="collapsed",
-                                            disabled=LOCKED or not on)
+                                            disabled=m_locked or not on)
                     r[4].markdown(_mini_team(m["away"], "away"), unsafe_allow_html=True)
                     if on:
                         scores[mid] = {"hs": int(hs), "as": int(as_)}
@@ -164,8 +182,8 @@ with tab_g:
 
     st.write("")
     if st.button(f"💾 Save predictions  ·  {len(group_tables)} group(s), {len(picks)} matches",
-                 disabled=LOCKED, key="save_groups", use_container_width=True):
-        if LOCKED:
+                 disabled=LOCKED and not EDITOR, key="save_groups", use_container_width=True):
+        if LOCKED and not EDITOR:
             st.error("Predictions are locked.")
         else:
             go = {g: list(group_tables[g][0]) for g in group_tables}
@@ -204,7 +222,8 @@ def _tree_slot(a, b, key, i, saved, meta, scores_out):
                 unsafe_allow_html=True)
             goals.append(int(r[1].number_input(
                 t["team"], 0, 30, value=int(prev.get("hs" if idx == 0 else "as") or 0),
-                key=f"{base}_g{idx}", label_visibility="collapsed", disabled=LOCKED)))
+                key=f"{base}_g{idx}", label_visibility="collapsed",
+                disabled=LOCKED and not EDITOR)))
         ga, gb = goals
         pens = None
         if ga > gb:
@@ -214,7 +233,8 @@ def _tree_slot(a, b, key, i, saved, meta, scores_out):
         else:
             default = 1 if prev.get("pens") == b["team"] else 0
             pw = st.radio("pens", [a["team"], b["team"]], index=default, horizontal=True,
-                          label_visibility="collapsed", key=f"{base}_pw", disabled=LOCKED)
+                          label_visibility="collapsed", key=f"{base}_pw",
+                          disabled=LOCKED and not EDITOR)
             winner = a if pw == a["team"] else b
             pens = winner["team"]
         st.markdown(f'<div class="ko-adv">✓ {winner["team"]} advance{" (pens)" if pens else ""}</div>',
@@ -266,8 +286,8 @@ with tab_k:
             unsafe_allow_html=True,
         )
         st.caption("⚽ Predict the Golden Boot & top scorers in the **Top Scorers** tab.")
-        if st.button("💾 Save knockout bracket", disabled=LOCKED, key="save_ko",
-                     use_container_width=True):
+        if st.button("💾 Save knockout bracket", disabled=LOCKED and not EDITOR,
+                     key="save_ko", use_container_width=True):
             save("knockout", payload, "Knockout bracket")
 
 # --------------------------------------------------------------------------- #
@@ -280,19 +300,20 @@ with tab_s:
     saved_s = ((db.get_prediction(pid, "scorers") or {}).get("top3", []) + ["", "", ""])[:3]
     medals = ["🥇 Golden Boot (1st)", "🥈 2nd top scorer", "🥉 3rd top scorer"]
     top3 = [st.text_input(medals[i], value=saved_s[i], key=f"sc_{pid}_{i}", max_chars=40,
-                          disabled=LOCKED, placeholder="e.g. Kylian Mbappé") for i in range(3)]
+                          disabled=LOCKED and not EDITOR,
+                          placeholder="e.g. Kylian Mbappé") for i in range(3)]
 
     st.write("")
     st.markdown('<span class="wc-badge">🏅 INDIVIDUAL AWARDS · +6 EACH</span>', unsafe_allow_html=True)
     saved_a = db.get_prediction(pid, "awards") or {}
     bp = st.text_input("⭐ Best Player (Golden Ball)", value=saved_a.get("best_player", ""),
-                       key=f"bp_{pid}", max_chars=40, disabled=LOCKED,
+                       key=f"bp_{pid}", max_chars=40, disabled=LOCKED and not EDITOR,
                        placeholder="best player of the tournament")
     gg = st.text_input("🧤 Golden Glove (best goalkeeper)", value=saved_a.get("golden_glove", ""),
-                       key=f"gg_{pid}", max_chars=40, disabled=LOCKED,
+                       key=f"gg_{pid}", max_chars=40, disabled=LOCKED and not EDITOR,
                        placeholder="best goalkeeper")
 
-    if st.button("💾 Save awards", disabled=LOCKED, key="save_scorers",
+    if st.button("💾 Save awards", disabled=LOCKED and not EDITOR, key="save_scorers",
                  use_container_width=True):
         db.save_prediction(pid, "scorers", {"top3": [t.strip() for t in top3]})
         db.save_prediction(pid, "awards",

@@ -7,6 +7,10 @@ import streamlit as st
 
 DEFAULT_LOCK = "2026-06-11T11:00:00"
 
+# Participants allowed to keep editing predictions for fixtures that have not
+# kicked off yet, even after the global lock. Matched case-insensitively.
+UNPLAYED_EDITORS = {"tomer"}
+
 
 def secret(key: str, default=None):
     """Read a Streamlit secret without crashing when no secrets file exists."""
@@ -26,6 +30,11 @@ def lock_dt() -> datetime:
 
 def is_locked() -> bool:
     return datetime.now() >= lock_dt()
+
+
+def is_unplayed_editor(user) -> bool:
+    """True if this participant may edit not-yet-played fixtures past the lock."""
+    return bool(user) and user.get("name", "").strip().lower() in UNPLAYED_EDITORS
 
 
 def current_user():

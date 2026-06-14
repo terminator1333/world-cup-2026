@@ -8,7 +8,7 @@ feel real and can be fine-tuned without touching any app logic.
 from __future__ import annotations
 
 import json
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
 
@@ -114,3 +114,13 @@ def group_matches() -> list[dict]:
 
 def matches_for_group(grp: str) -> list[dict]:
     return [m for m in group_matches() if m["group"] == grp]
+
+
+def match_kickoff(m: dict) -> datetime:
+    """Naive kickoff datetime for a fixture, from its date + time fields."""
+    return datetime.fromisoformat(f"{m['date']}T{m['time']}")
+
+
+def match_played(m: dict, now: datetime | None = None) -> bool:
+    """True once a fixture has kicked off (so it can no longer be predicted)."""
+    return (now or datetime.now()) >= match_kickoff(m)
