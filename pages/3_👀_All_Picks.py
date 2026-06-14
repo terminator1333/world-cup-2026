@@ -9,6 +9,7 @@ from lib import db, theme
 from lib.bracket import build_qualifiers, seed_bracket
 from lib.data import group_matches, load_groups, matches_for_group
 from lib.flags import flag_img, team_chip
+from lib.scoring import PTS_GAME_EXACT, PTS_GAME_OUTCOME
 from lib.standings import best_thirds, compute_table
 
 st.set_page_config(page_title="All Picks · WC2026", page_icon="👀", layout="wide")
@@ -17,6 +18,7 @@ theme.hero("EVERYONE'S PICKS", "See what everyone is predicting.")
 
 participants = db.list_participants()
 preds = db.all_predictions()
+results = db.get_results()
 by_pid: dict[str, dict] = {}
 for row in preds:
     by_pid.setdefault(row["participant_id"], {})[row["category"]] = row["payload"]
@@ -94,10 +96,33 @@ def _group_tables(per_game):
     return gt
 
 
+def _game_points(pick, actual):
+    """Points a per-game pick earned, or None if the game has no result yet."""
+    if not pick or not actual:
+        return None
+    if pick.get("outcome") and pick["outcome"] == actual.get("outcome"):
+        if pick.get("hs") == actual.get("hs") and pick.get("as") == actual.get("as"):
+            return PTS_GAME_OUTCOME + PTS_GAME_EXACT
+        return PTS_GAME_OUTCOME
+    return 0
+
+
+def _result_html(pick, m):
+    """Actual scoreline + points-earned badge, shown once a result is recorded."""
+    actual = results.get(("per_game", m["id"]))
+    pts = _game_points(pick, actual)
+    if pts is None:
+        return ""
+    colour = "#1db954" if pts >= PTS_GAME_OUTCOME + PTS_GAME_EXACT else \
+             "#7bb026" if pts >= PTS_GAME_OUTCOME else "#8a8f98"
+    return (f'<span class="apk-actual">→ {actual["hs"]}–{actual["as"]}</span>'
+            f'<span class="apk-earned" style="color:{colour}">+{pts}</span>')
+
+
 def _score_rows_by_date(per_game):
     """Predicted group scorelines across all groups, ordered by kickoff date."""
     out, cur_date = "", None
-    for m in group_matches():            # already sorted by (date, group)
+    for m in group_matches():            # already sorted by (date, time, group)
         p = per_game.get(m["id"])
         if not p:
             continue
@@ -109,7 +134,8 @@ def _score_rows_by_date(per_game):
             f'<div class="apk-score">{flag_img(m["home"], 20)}'
             f'<span class="apk-tn">{m["home"]}</span>'
             f'<b class="apk-num">{p["hs"]} – {p["as"]}</b>'
-            f'<span class="apk-tn rt">{m["away"]}</span>{flag_img(m["away"], 20)}</div>'
+            f'<span class="apk-tn rt">{m["away"]}</span>{flag_img(m["away"], 20)}'
+            f'{_result_html(p, m)}</div>'
         )
     return out
 

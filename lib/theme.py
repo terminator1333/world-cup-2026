@@ -357,6 +357,10 @@ html { font-size: 18px; }
 .apk-tn { flex:1; font-weight:700; font-size:14px; color:#dce6ff; }
 .apk-tn.rt { text-align:right; }
 .apk-num { font-family:'Anton'; font-size:17px; color:#fff; }
+.apk-actual { flex:0 0 auto; margin-left:8px; font-family:'Anton'; font-size:14px;
+  color:#aeb9d0; white-space:nowrap; }
+.apk-earned { flex:0 0 auto; margin-left:6px; min-width:30px; text-align:right;
+  font-weight:800; font-size:13px; }
 
 /* Match meta line: date · time · city + thumbnail */
 .m-meta { display:flex; align-items:center; gap:10px; margin:7px 0 3px; }
