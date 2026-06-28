@@ -5,7 +5,8 @@ import pandas as pd
 import streamlit as st
 
 from lib import theme
-from lib.data import CHAMPION_POINTS, KNOCKOUT_ROUNDS, group_matches, load_groups
+from lib.data import (CHAMPION_POINTS, KNOCKOUT_ROUNDS, KO_POOL_EXACT_SCORE,
+                     KO_POOL_POINTS, group_matches, load_groups)
 from lib.scoring import (PTS_AWARD, PTS_GAME_EXACT, PTS_GAME_OUTCOME, PTS_GROUP_POSITION,
                          PTS_GROUP_QUALIFIERS, PTS_GROUP_WINNER, PTS_SCORER_EXACT,
                          PTS_SCORER_IN_TOP3, PTS_THIRD_PLACE)
@@ -87,7 +88,22 @@ st.write("Call the tournament's standout player and best goalkeeper — "
          f"**+{PTS_AWARD}** each if you name them right.")
 
 st.divider()
+
+# --- Knockout Pool — the separate game ------------------------------------- #
+st.markdown('<span class="ko-badge">🥊 KNOCKOUT POOL · SEPARATE GAME</span>', unsafe_allow_html=True)
+st.write("A standalone contest on the **real** Round-of-32 bracket, with its **own leaderboard** — "
+         "it does **not** affect your full-tournament total. Each team you correctly send through "
+         "a round scores, the deeper the better:")
+cards([(f"+{KO_POOL_POINTS['r32']}", "Wins R32 (into R16)"),
+       (f"+{KO_POOL_POINTS['r16']}", "Wins R16 (into QF)"),
+       (f"+{KO_POOL_POINTS['qf']}", "Wins QF (into SF)"),
+       (f"+{KO_POOL_POINTS['sf']}", "Wins SF (into Final)"),
+       (f"+{KO_POOL_POINTS['champion']}", "Champion")])
+st.write(f"Plus **+{KO_POOL_EXACT_SCORE}** for every tie where you nail the exact scoreline. "
+         "Your champion banks points from every round they win, so calling the winner is the "
+         "biggest prize. Predictions lock at the **first knockout game**.")
+
+st.divider()
 st.markdown('<span class="wc-badge">📊 LEADERBOARD</span>', unsafe_allow_html=True)
-st.write("Your total is the sum of everything you got right, shown with a per-category breakdown on "
-         "the **📊 Leaderboard** page. Results are entered as matches finish, so scores climb live "
-         "throughout the tournament.")
+st.write("Two boards on the **📊 Leaderboard** page — **Full Tournament** and **Knockout Pool** — "
+         "each scored automatically as results come in.")

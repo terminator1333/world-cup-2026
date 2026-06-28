@@ -5,7 +5,7 @@ from datetime import date as _date
 
 import streamlit as st
 
-from lib import db, theme
+from lib import db, ko_pool, theme
 from lib.bracket import build_qualifiers, seed_bracket
 from lib.data import group_matches, load_groups, matches_for_group
 from lib.flags import flag_img, team_chip
@@ -172,7 +172,8 @@ def _person(pid):
     st.markdown(f'<div class="apk-name">{names[pid]}</div>', unsafe_allow_html=True)
 
 
-tab_g, tab_k, tab_s = st.tabs(["🥇 Group stage", "🏆 Knockout", "⚽ Exact scores"])
+tab_g, tab_k, tab_p, tab_s = st.tabs(
+    ["🥇 Group stage", "🏆 Knockout", "🥊 Knockout Pool", "⚽ Exact scores"])
 
 # --- Group stage ----------------------------------------------------------- #
 with tab_g:
@@ -245,6 +246,32 @@ with tab_k:
                     st.markdown(f"⭐ **Best Player:** {awards['best_player']}")
                 if awards.get("golden_glove"):
                     st.markdown(f"🧤 **Golden Glove:** {awards['golden_glove']}")
+
+# --- Knockout Pool (separate competition, real bracket) -------------------- #
+with tab_p:
+    actual_ko = results.get(("ko_pool", "bracket"))
+    st.markdown('<span class="ko-badge">🥊 SEPARATE GAME · REAL ROUND OF 32</span>',
+                unsafe_allow_html=True)
+    st.caption("Everyone's bracket on the actual qualifiers. "
+               + ("✓ / ✗ mark whether each pick has come true."
+                  if actual_ko else "Results will mark each pick once games are played."))
+    any_pool = False
+    for pid in chosen:
+        pool = by_pid.get(pid, {}).get("ko_pool") or {}
+        if not pool:
+            continue
+        any_pool = True
+        with st.container(border=True):
+            _person(pid)
+            champ = pool.get("champion")
+            if champ:
+                st.markdown(
+                    f'<div class="champ-banner">{flag_img(champ, 54)}'
+                    f'<div><span class="champ-kick">CHAMPION PICK</span><br>'
+                    f'{champ} 🏆</div></div>', unsafe_allow_html=True)
+            st.markdown(ko_pool.tree_html(pool, actual_ko), unsafe_allow_html=True)
+    if not any_pool:
+        st.info("No knockout-pool brackets submitted yet.")
 
 # --- Exact scores ---------------------------------------------------------- #
 with tab_s:

@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import streamlit as st
 
-from lib import db, theme, util
-from lib.data import KNOCKOUT_ROUNDS, all_teams, load_groups, matches_for_group
+from lib import db, ko_pool, theme, util
+from lib.data import (KNOCKOUT_ROUNDS, all_teams, load_groups, load_real_results,
+                      matches_for_group)
 
 st.set_page_config(page_title="Admin · WC2026", page_icon="🔐", layout="wide")
 theme.inject()
@@ -27,9 +28,21 @@ results = db.get_results()
 groups = load_groups()
 teams = all_teams()
 
-tab_g, tab_m, tab_t, tab_k, tab_s = st.tabs(
+with st.expander("📥 Load real 2026 group results (one click)"):
+    st.caption("Writes the official final group tables (1st–4th × 12) and the 8 third-place "
+               "qualifiers, so the **full-tournament** leaderboard scores against reality. "
+               "You can still fine-tune them in the tabs below afterwards.")
+    if st.button("📥 Load real group results now", key="load_real"):
+        rr = load_real_results()
+        for grp, order in rr["group_order"].items():
+            db.save_result("group_order", grp, order)
+        db.save_result("third_place", "advancing", rr["third_place_advancing"])
+        st.success("Loaded real final group tables + 3rd-place qualifiers.")
+        st.rerun()
+
+tab_g, tab_m, tab_t, tab_k, tab_p, tab_s = st.tabs(
     ["🥇 Group final tables", "⚽ Match scores", "🥉 3rd-place qualifiers",
-     "🏆 Knockout", "🏅 Awards"]
+     "🏆 Knockout", "🥊 Knockout Pool", "🏅 Awards"]
 )
 
 # --- Group final standings ------------------------------------------------- #
@@ -108,6 +121,24 @@ with tab_k:
     if st.button("💾 Save champion"):
         db.save_result("knockout", "champion", None if champ == "—" else champ)
         st.success("Champion saved.")
+
+# --- Knockout Pool actual results (drives the separate pool leaderboard) ---- #
+with tab_p:
+    st.caption("Enter the ACTUAL knockout results on the real bracket — tick **Played**, then "
+               "enter the scoreline (pick the penalty winner if level). Only ties you mark "
+               "**Played** are scored, so it's safe to save as games finish. This is the single "
+               "source of truth for the **Knockout Pool** leaderboard.")
+    actual = results.get(("ko_pool", "bracket")) or {}
+    actual_payload = ko_pool.render_bracket_editor(actual, locked=False, prefix="admin_kop",
+                                                   played_toggle=True)
+    champ = actual_payload.get("champion")
+    if champ:
+        st.markdown(f'<div class="ko-strip"><b>🏆 ACTUAL CHAMPION: {champ}</b></div>',
+                    unsafe_allow_html=True)
+    if st.button("💾 Save knockout pool results", key="save_ko_actual",
+                 use_container_width=True):
+        db.save_result("ko_pool", "bracket", actual_payload)
+        st.success("Knockout pool results saved — pool leaderboard updated.")
 
 # --- Awards (top scorers, best player, golden glove) ----------------------- #
 with tab_s:

@@ -1,0 +1,46 @@
+{
+  "_source": "Real 2026 FIFA World Cup knockout bracket (fixed, no redraw). Round of 32 ties are listed in BRACKET ORDER, so consecutive pairs feed the next round (ties 1&2 -> a Round-of-16 match, etc.). Seeds are each team's group + final position. Teams use the app's exact names so scoring matches.",
+  "r32": [
+    {"id": "m74", "no": 74, "home": "Germany",       "home_seed": "E1", "away": "Paraguay",              "away_seed": "D3", "date": "2026-06-29", "time": "16:30", "city": "Boston"},
+    {"id": "m77", "no": 77, "home": "France",        "home_seed": "I1", "away": "Sweden",                "away_seed": "F3", "date": "2026-06-30", "time": "17:00", "city": "New York / NJ"},
+    {"id": "m73", "no": 73, "home": "South Africa",  "home_seed": "A2", "away": "Canada",                "away_seed": "B2", "date": "2026-06-28", "time": "12:00", "city": "Los Angeles"},
+    {"id": "m75", "no": 75, "home": "Netherlands",   "home_seed": "F1", "away": "Morocco",               "away_seed": "C2", "date": "2026-06-29", "time": "19:00", "city": "Monterrey"},
+    {"id": "m83", "no": 83, "home": "Portugal",      "home_seed": "K2", "away": "Croatia",               "away_seed": "L2", "date": "2026-07-02", "time": "19:00", "city": "Toronto"},
+    {"id": "m84", "no": 84, "home": "Spain",         "home_seed": "H1", "away": "Austria",               "away_seed": "J2", "date": "2026-07-02", "time": "12:00", "city": "Los Angeles"},
+    {"id": "m81", "no": 81, "home": "United States", "home_seed": "D1", "away": "Bosnia & Herzegovina",  "away_seed": "B3", "date": "2026-07-01", "time": "17:00", "city": "San Francisco"},
+    {"id": "m82", "no": 82, "home": "Belgium",       "home_seed": "G1", "away": "Senegal",               "away_seed": "I3", "date": "2026-07-01", "time": "13:00", "city": "Seattle"},
+    {"id": "m76", "no": 76, "home": "Brazil",        "home_seed": "C1", "away": "Japan",                 "away_seed": "F2", "date": "2026-06-29", "time": "12:00", "city": "Houston"},
+    {"id": "m78", "no": 78, "home": "Ivory Coast",   "home_seed": "E2", "away": "Norway",                "away_seed": "I2", "date": "2026-06-30", "time": "12:00", "city": "Dallas"},
+    {"id": "m79", "no": 79, "home": "Mexico",        "home_seed": "A1", "away": "Ecuador",               "away_seed": "E3", "date": "2026-06-30", "time": "19:00", "city": "Mexico City"},
+    {"id": "m80", "no": 80, "home": "England",       "home_seed": "L1", "away": "DR Congo",              "away_seed": "K3", "date": "2026-07-01", "time": "12:00", "city": "Atlanta"},
+    {"id": "m86", "no": 86, "home": "Argentina",     "home_seed": "J1", "away": "Cape Verde",            "away_seed": "H2", "date": "2026-07-03", "time": "18:00", "city": "Miami"},
+    {"id": "m88", "no": 88, "home": "Australia",     "home_seed": "D2", "away": "Egypt",                 "away_seed": "G2", "date": "2026-07-03", "time": "13:00", "city": "Dallas"},
+    {"id": "m85", "no": 85, "home": "Switzerland",   "home_seed": "B1", "away": "Algeria",               "away_seed": "J3", "date": "2026-07-02", "time": "20:00", "city": "Vancouver"},
+    {"id": "m87", "no": 87, "home": "Colombia",      "home_seed": "K1", "away": "Ghana",                 "away_seed": "L3", "date": "2026-07-03", "time": "20:30", "city": "Kansas City"}
+  ],
+  "rounds": {
+    "r16": [
+      {"date": "2026-07-04", "city": "Philadelphia"},
+      {"date": "2026-07-04", "city": "Houston"},
+      {"date": "2026-07-06", "city": "Dallas"},
+      {"date": "2026-07-06", "city": "Seattle"},
+      {"date": "2026-07-05", "city": "New York / NJ"},
+      {"date": "2026-07-05", "city": "Mexico City"},
+      {"date": "2026-07-07", "city": "Atlanta"},
+      {"date": "2026-07-07", "city": "Vancouver"}
+    ],
+    "qf": [
+      {"date": "2026-07-09", "city": "Boston"},
+      {"date": "2026-07-10", "city": "Los Angeles"},
+      {"date": "2026-07-11", "city": "Miami"},
+      {"date": "2026-07-11", "city": "Kansas City"}
+    ],
+    "sf": [
+      {"date": "2026-07-14", "city": "Dallas"},
+      {"date": "2026-07-15", "city": "Atlanta"}
+    ],
+    "champion": [
+      {"date": "2026-07-19", "city": "New York / NJ"}
+    ]
+  }
+}

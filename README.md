@@ -9,14 +9,25 @@ A vibrant, FIFA-game-styled Streamlit app where you and your friends predict the
 on a live, auto-scored leaderboard. No local server to babysit — it runs on
 **Streamlit Community Cloud** with a free **Supabase** database holding everyone's picks.
 
-## What you can predict (all optional, per person)
-- **🥇 Group standings** — order all 12 groups 1st → 4th
-- **⚽ Match results** — outcome (+ optional scoreline) for any group game
-- **🥉 3rd-place race** — which 8 third-placed teams sneak into the Round of 32
-- **🏆 Knockout bracket** — your run from the Round of 16 to the champion + Golden Boot
+## Two separate games
+The app runs **two independent competitions, each with its own leaderboard**:
 
-Points are awarded automatically (tunable in `lib/scoring.py`) and everyone's
-picks are revealed once predictions lock at kickoff.
+1. **🏆 Full Tournament** *(season-long)* — predict, all optional, per person:
+   - **🥇 Group standings** — order all 12 groups 1st → 4th
+   - **⚽ Match results** — outcome (+ optional scoreline) for any group game
+   - **🥉 3rd-place race** — which 8 third-placed teams sneak into the Round of 32
+   - **🏆 Knockout bracket** — your run to the champion + Golden Boot & awards
+2. **🥊 Knockout Pool** *(separate ranking)* — once the group stage is over and the
+   32 are known, predict the **real** Round-of-32 bracket (actual qualifiers, fixed
+   FIFA slotting) tie-by-tie to the champion. It does **not** affect your
+   full-tournament score and locks at the **first knockout game**
+   (`KO_LOCK_DATETIME`, default 2026-06-28 19:00 UTC).
+
+Points are awarded automatically (tunable in `lib/scoring.py` / `lib/data.py`) and
+everyone's picks are revealed on the **All Picks** page. The real bracket and final
+group tables live in `data/knockout_bracket.json` and `data/real_results.json`;
+an Admin button one-click-loads the real group results so the full-tournament board
+goes live.
 
 <img width="1600" height="893" alt="vancouver" src="https://github.com/user-attachments/assets/b43bfed4-61b3-43a0-8002-f06f717ae6a5" />
 

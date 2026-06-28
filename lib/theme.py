@@ -367,6 +367,36 @@ html { font-size: 18px; }
 .m-meta .mthumb { width:42px; height:28px; object-fit:cover; border-radius:7px;
   box-shadow:0 2px 8px #0009; border:1px solid #ffffff22; flex:0 0 auto; }
 .m-meta span { font-size:15px; font-weight:700; color:#bcc9e6; }
+
+/* --- Knockout Pool: a visually distinct, separate competition --------------- */
+:root { --ko: #FF2E93; --ko2: #FFB02E; }   /* magenta→amber, set apart from the green/blue main pool */
+/* its own hero tint */
+.wc-hero.ko-hero { background: linear-gradient(125deg,#3a0820 0%,#1a0a10 48%,#2a1402 100%); }
+.wc-hero.ko-hero::after { content:"🥊"; }
+.wc-hero.ko-hero .wc-kicker { color: var(--ko2); }
+.wc-hero.ko-hero .wc-title {
+  background: linear-gradient(92deg,#fff,var(--ko) 55%,var(--ko2));
+  -webkit-background-clip:text; background-clip:text; color:transparent; }
+/* a strip that screams "this is the separate knockout game" */
+.ko-strip { display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  margin:6px 0 14px; padding:12px 18px; border-radius:16px 6px 18px 7px;
+  background:linear-gradient(100deg,#FF2E9322,#FFB02E1c);
+  border:1px solid #FF2E9355; box-shadow:0 10px 26px #00000040; }
+.ko-strip b { font-family:'Anton'; font-size:17px; color:#fff; letter-spacing:.5px; }
+.ko-strip span { color:#e9c4d8; font-weight:600; font-size:14px; }
+.ko-badge { display:inline-block; font-family:'Anton'; font-size:13px; letter-spacing:1px;
+  padding:4px 12px; border-radius:8px; color:#1a0610;
+  background:linear-gradient(90deg,var(--ko),var(--ko2)); }
+.ko-pill { display:inline-block; padding:3px 12px; border-radius:999px; font-weight:700;
+  font-size:13px; background:#FF2E9322; border:1px solid #FF2E9366; color:#ffd0e6; }
+/* knockout-pool leaderboard score in the pool's accent colour */
+.lb-score.ko { color: var(--ko2); }
+/* read-only tree: predicted scoreline + correctness marks */
+.rotie-sc { text-align:center; font-family:'Anton'; font-size:12px; color:#aebbd6;
+  margin-top:2px; }
+.rorow.ok { background:linear-gradient(90deg,#00E5A033,transparent); color:#fff; }
+.rorow.miss { background:linear-gradient(90deg,#FF2E9333,transparent); color:#fff; }
+.rorow small { color:#8ea0c4; font-weight:700; }
 </style>
 """
 
@@ -451,9 +481,9 @@ def _app_background():
 
 
 def hero(title: str, subtitle: str, kicker: str = "FIFA World Cup 2026 · USA · Canada · Mexico",
-         bg_html: str = ""):
+         bg_html: str = "", cls: str = ""):
     st.markdown(
-        f'<div class="wc-hero">'
+        f'<div class="wc-hero {cls}">'
         f'{bg_html}'
         f'<div class="wc-hero-inner">'
         f'<div class="wc-kicker">{kicker}</div>'
@@ -464,17 +494,17 @@ def hero(title: str, subtitle: str, kicker: str = "FIFA World Cup 2026 · USA ·
     )
 
 
-def countdown():
-    """Live ticking countdown to kickoff. Runs as a real (JS-executing) iframe."""
+def countdown(target_iso: str = KICKOFF_ISO, live_label: str = "Tournament underway",
+              fallback: str = "⏱️ Kickoff: June 11, 2026"):
+    """Live ticking countdown to `target_iso`. Runs as a real (JS-executing) iframe."""
     try:
-        _countdown_iframe()
+        _countdown_iframe(target_iso, live_label)
     except Exception:
         # Degrade gracefully if the html component API is unavailable.
-        st.markdown('<span class="wc-pill">⏱️ Kickoff: June 11, 2026</span>',
-                    unsafe_allow_html=True)
+        st.markdown(f'<span class="wc-pill">{fallback}</span>', unsafe_allow_html=True)
 
 
-def _countdown_iframe():
+def _countdown_iframe(target_iso: str, live_label: str):
     components.html(
         f"""
 <div class="cd-wrap" id="wc-cd"></div>
@@ -488,13 +518,13 @@ body{{margin:0;background:transparent;font-family:'Rajdhani',sans-serif;}}
 .cd-lbl{{font-size:11px;letter-spacing:2px;color:#8ea0c4;text-transform:uppercase;}}
 </style>
 <script>
-var t=new Date("{KICKOFF_ISO}").getTime();
+var t=new Date("{target_iso}").getTime();
 function pad(n){{return String(n).padStart(2,"0");}}
 function tick(){{
   var el=document.getElementById("wc-cd"); if(!el) return;
   var d=t-Date.now();
   if(d<0){{el.innerHTML='<div class="cd-box"><div class="cd-num">LIVE</div>'+
-    '<div class="cd-lbl">Tournament underway</div></div>'; return;}}
+    '<div class="cd-lbl">{live_label}</div></div>'; return;}}
   var dd=Math.floor(d/864e5),hh=Math.floor(d%864e5/36e5),
       mm=Math.floor(d%36e5/6e4),ss=Math.floor(d%6e4/1e3);
   var parts=[["DAYS",dd],["HRS",pad(hh)],["MIN",pad(mm)],["SEC",pad(ss)]];

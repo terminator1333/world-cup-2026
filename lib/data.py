@@ -187,6 +187,46 @@ KNOCKOUT_ROUNDS = [
 ]
 CHAMPION_POINTS = 15
 
+# --------------------------------------------------------------------------- #
+# Knockout Pool — a SEPARATE competition on the REAL Round-of-32 bracket.
+# (The full-tournament "knockout" above is derived from each player's own
+# predicted group results; this one uses the actual qualifiers + fixed bracket.)
+# --------------------------------------------------------------------------- #
+# (key, display label, "round being played" label, number of ties in the round).
+KO_POOL_ROUNDS = [
+    ("r32", "Round of 32", "ROUND OF 32", 16),
+    ("r16", "Round of 16", "ROUND OF 16", 8),
+    ("qf", "Quarter-finals", "QUARTER-FINALS", 4),
+    ("sf", "Semi-finals", "SEMI-FINALS", 2),
+    ("champion", "Final", "FINAL", 1),
+]
+# Points per correctly-predicted winner advancing OUT of each round (champion = the
+# tournament winner). Tunable. Per-tie exact-scoreline bonus on top.
+KO_POOL_POINTS = {"r32": 1, "r16": 2, "qf": 4, "sf": 6, "champion": 12}
+KO_POOL_EXACT_SCORE = 2
+
+
+@lru_cache(maxsize=1)
+def load_ko_bracket() -> dict:
+    return json.loads((DATA_DIR / "knockout_bracket.json").read_text(encoding="utf-8"))
+
+
+@lru_cache(maxsize=1)
+def load_real_results() -> dict:
+    return json.loads((DATA_DIR / "real_results.json").read_text(encoding="utf-8"))
+
+
+def ko_r32_ties() -> list[dict]:
+    """The 16 real Round-of-32 ties, in bracket order (consecutive pairs feed
+    the next round)."""
+    return load_ko_bracket()["r32"]
+
+
+def ko_round_meta(round_key: str, idx: int) -> dict:
+    """Date / city for a derived round's match (idx = position in bracket order)."""
+    metas = load_ko_bracket()["rounds"].get(round_key) or []
+    return metas[idx] if idx < len(metas) else {}
+
 
 @lru_cache(maxsize=1)
 def load_teams() -> dict:

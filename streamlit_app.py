@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from lib import db, theme
+from lib import db, theme, util
 from lib.data import all_teams, group_matches, load_groups
 from lib.scoring import leaderboard
 
@@ -32,18 +32,39 @@ c4.metric("Players in pool", len(db.list_participants()))
 
 st.write("")
 
+# --- Two separate games ---------------------------------------------------- #
+ko_lock = util.ko_lock_dt()
+ko_open = not util.ko_is_locked()
+st.markdown(
+    '<div class="ko-strip">'
+    '<b>🥊 NEW · KNOCKOUT POOL</b>'
+    '<span>The group stage is done and the Round of 32 is set. The knockout pool is a '
+    '<b>separate game with its own ranking</b> on the real bracket — '
+    + (f'open until <b>{ko_lock:%b %d, %H:%M} UTC</b> (first knockout game).'
+       if ko_open else 'now <b>locked</b>.') +
+    ' Your full-tournament picks are untouched.</span>'
+    '</div>', unsafe_allow_html=True)
+kp1, kp2 = st.columns(2)
+kp1.page_link("pages/7_🥊_Knockout_Pool.py", label="Predict the real Round of 32", icon="🥊")
+kp2.page_link("pages/2_📊_Leaderboard.py", label="Leaderboards (Full + Knockout)", icon="📊")
+
+st.write("")
+
 left, right = st.columns([1.1, 1])
 
 with left:
     st.markdown('<span class="wc-badge">HOW IT WORKS</span>', unsafe_allow_html=True)
     st.markdown(
         """
-- **🔮 Predictions** — register with a name + PIN, then pick **whatever you like**:
-  group standings, individual match results, the best 3rd-placed teams, and the
-  full knockout bracket all the way to the champion. Every section is optional.
-- **📊 Leaderboard** — points are awarded automatically as results come in.
-- **👀 All Picks** — once predictions lock at kickoff, see everyone's calls.
-- Predictions **lock at the first kickoff** — June 11, 2026.
+- **🔮 Predictions** *(full tournament)* — register with a name + PIN, then pick
+  **whatever you like**: group standings, match results, the best 3rd-placed
+  teams, and a knockout bracket all the way to the champion. Every section is optional.
+- **🥊 Knockout Pool** *(separate game)* — now that the 32 are known, predict the
+  **real** Round-of-32 bracket. It has its **own ranking** and doesn't affect your
+  full-tournament score. Locks at the first knockout game.
+- **📊 Leaderboard** — two boards (Full Tournament + Knockout Pool), scored
+  automatically as results come in.
+- **👀 All Picks** — see everyone's calls across both games.
         """
     )
     st.page_link("pages/1_🔮_Predictions.py", label="Make your predictions", icon="🔮")

@@ -1,0 +1,21 @@
+{
+  "_source": "Real 2026 FIFA World Cup final group-stage outcomes. Used by the Admin 'Load real 2026 group results' button so the existing full-tournament leaderboard scores against reality. Team names match the app exactly.",
+  "group_order": {
+    "A": ["Mexico", "South Africa", "South Korea", "Czech Republic"],
+    "B": ["Switzerland", "Canada", "Bosnia & Herzegovina", "Qatar"],
+    "C": ["Brazil", "Morocco", "Scotland", "Haiti"],
+    "D": ["United States", "Australia", "Paraguay", "Turkey"],
+    "E": ["Germany", "Ivory Coast", "Ecuador", "Curaçao"],
+    "F": ["Netherlands", "Japan", "Sweden", "Tunisia"],
+    "G": ["Belgium", "Egypt", "Iran", "New Zealand"],
+    "H": ["Spain", "Cape Verde", "Uruguay", "Saudi Arabia"],
+    "I": ["France", "Norway", "Senegal", "Iraq"],
+    "J": ["Argentina", "Austria", "Algeria", "Jordan"],
+    "K": ["Colombia", "Portugal", "DR Congo", "Uzbekistan"],
+    "L": ["England", "Croatia", "Ghana", "Panama"]
+  },
+  "third_place_advancing": [
+    "Bosnia & Herzegovina", "Paraguay", "Ecuador", "Sweden",
+    "Senegal", "Algeria", "DR Congo", "Ghana"
+  ]
+}

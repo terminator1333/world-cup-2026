@@ -12,7 +12,8 @@ create table if not exists participants (
 );
 
 -- One row per (player, category). payload is flexible JSON.
--- category in ('group_order','per_game','third_place','knockout')
+-- category in ('group_order','per_game','third_place','knockout','scorers',
+--              'awards','ko_pool')   -- 'ko_pool' = the separate Round-of-32 game
 create table if not exists predictions (
   id             uuid primary key default gen_random_uuid(),
   participant_id uuid references participants(id) on delete cascade,

@@ -6,7 +6,9 @@ and results arrive incrementally over the tournament.
 """
 from __future__ import annotations
 
-from .data import KNOCKOUT_ROUNDS, CHAMPION_POINTS
+from .data import (KNOCKOUT_ROUNDS, CHAMPION_POINTS, KO_POOL_POINTS,
+                   KO_POOL_EXACT_SCORE)
+from .ko_pool import advancing_sets, bracket_matches
 
 # --- point values ---------------------------------------------------------- #
 PTS_GAME_OUTCOME = 3
@@ -148,5 +150,72 @@ def leaderboard(all_predictions: list[dict], participants: list[dict], results: 
     for pid, name in names.items():
         scored = score_participant(by_pid.get(pid, {}), results)
         table.append({"name": name, "total": scored["total"], "breakdown": scored["breakdown"]})
+    table.sort(key=lambda r: (-r["total"], r["name"].lower()))
+    return table
+
+
+# --------------------------------------------------------------------------- #
+# Knockout Pool — a SEPARATE competition / ranking on the real R32 bracket.
+# Deliberately NOT part of _SCORERS above, so it never touches the
+# full-tournament total. Scored against the admin-entered actual bracket stored
+# under results[("ko_pool", "bracket")].
+# --------------------------------------------------------------------------- #
+KO_POOL_CATEGORY_LABELS = {
+    "r32": "R32", "r16": "R16", "qf": "QF", "sf": "SF",
+    "champion": "Champion", "exact": "Exact scores",
+}
+
+
+def score_ko_pool_breakdown(payload: dict, results: dict) -> dict:
+    """Per-round points for one knockout-pool entry. Each round scores per team
+    that the player correctly sent through; plus the champion and per-tie exact
+    scorelines (only when the predicted tie is the same matchup as reality)."""
+    out = {"r32": 0, "r16": 0, "qf": 0, "sf": 0, "champion": 0, "exact": 0}
+    actual = results.get(("ko_pool", "bracket"))
+    if not actual or not payload:
+        return {**out, "total": 0}
+
+    # Only count ties the admin has flagged "played" — so future rounds (which the
+    # editor pre-fills with placeholder winners) never score prematurely.
+    adv = advancing_sets(actual, require_played=True)
+    for key in ("r32", "r16", "qf", "sf"):
+        out[key] = KO_POOL_POINTS[key] * len(adv[key] & set(payload.get(key) or []))
+    if payload.get("champion") and payload["champion"] in adv["champion"]:
+        out["champion"] = KO_POOL_POINTS["champion"]
+
+    am, pm = bracket_matches(actual), bracket_matches(payload)
+    for key, aties in am.items():
+        pties = pm.get(key, [])
+        for i, at in enumerate(aties):
+            asc = at.get("score")
+            if not asc or not asc.get("played") or i >= len(pties):
+                continue
+            if asc.get("hs") is None or asc.get("as") is None:
+                continue
+            pt = pties[i]
+            psc = pt.get("score")
+            if not psc or {pt["a"], pt["b"]} != {at["a"], at["b"]}:
+                continue  # only score a tie we actually got as the right matchup
+            if psc.get("hs") == asc.get("hs") and psc.get("as") == asc.get("as"):
+                out["exact"] += KO_POOL_EXACT_SCORE
+
+    out["total"] = sum(out.values())
+    return out
+
+
+def score_ko_pool(payload: dict, results: dict) -> int:
+    return score_ko_pool_breakdown(payload, results)["total"]
+
+
+def ko_pool_leaderboard(all_predictions: list[dict], participants: list[dict],
+                        results: dict) -> list[dict]:
+    """Standalone knockout-pool ranking (independent of the full-tournament board)."""
+    by_pid = {row["participant_id"]: row["payload"]
+              for row in all_predictions if row["category"] == "ko_pool"}
+    table = []
+    for p in participants:
+        bd = score_ko_pool_breakdown(by_pid.get(p["id"]), results)
+        table.append({"name": p["name"], "total": bd["total"], "breakdown": bd,
+                      "played": p["id"] in by_pid})
     table.sort(key=lambda r: (-r["total"], r["name"].lower()))
     return table
