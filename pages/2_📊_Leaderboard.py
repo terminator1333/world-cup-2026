@@ -4,7 +4,7 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from lib import db, theme
+from lib import db, theme, util
 from lib.scoring import (CATEGORY_LABELS, KO_POOL_CATEGORY_LABELS, ko_pool_leaderboard,
                          leaderboard)
 
@@ -58,7 +58,9 @@ else:
     st.markdown('<span class="ko-badge">🥊 SEPARATE RANKING</span>', unsafe_allow_html=True)
     st.caption("A standalone contest on the real Round-of-32 bracket. Completely "
                "independent of the full-tournament board above.")
-    board = ko_pool_leaderboard(preds, parts, results)
+    late_deadlines = {p["id"]: util.ko_late_deadline(p) for p in parts
+                      if util.ko_late_deadline(p) is not None}
+    board = ko_pool_leaderboard(preds, parts, results, late_deadlines)
     players = [r for r in board if r["played"]]
     if not players:
         st.info("No knockout-pool brackets submitted yet — make yours on the "

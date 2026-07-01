@@ -1,7 +1,7 @@
 """Small shared helpers (prediction lock + auth session)."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import streamlit as st
 
@@ -14,6 +14,18 @@ DEFAULT_KO_LOCK = "2026-06-28T19:00:00+00:00"
 # Participants allowed to keep editing predictions for fixtures that have not
 # kicked off yet, even after the global lock. Matched case-insensitively.
 UNPLAYED_EDITORS = {"tomer"}
+
+ISRAEL_TZ = timezone(timedelta(hours=3))  # IDT (no DST transitions during the tournament)
+
+# Knockout-pool players who registered after the pool's normal lock. Each gets a
+# personal deadline (their own grace window) instead of the shared KO_LOCK_DATETIME.
+# Ties that already kicked off before that deadline score 0 for them — no credit
+# for picks made with hindsight — while ties after it (which they had to call
+# blind, since they can no longer edit past their own deadline) score normally.
+# Matched case-insensitively.
+KO_LATE_ENTRANTS = {
+    "lebron james": datetime(2026, 7, 1, 20, 0, tzinfo=ISRAEL_TZ),
+}
 
 
 def secret(key: str, default=None):
@@ -53,6 +65,23 @@ def ko_is_locked() -> bool:
 def is_unplayed_editor(user) -> bool:
     """True if this participant may edit not-yet-played fixtures past the lock."""
     return bool(user) and user.get("name", "").strip().lower() in UNPLAYED_EDITORS
+
+
+def ko_late_deadline(user) -> datetime | None:
+    """This participant's personal knockout-pool deadline, if they're a late
+    entrant granted a grace window past the normal pool lock (see KO_LATE_ENTRANTS)."""
+    if not user:
+        return None
+    return KO_LATE_ENTRANTS.get(user.get("name", "").strip().lower())
+
+
+def ko_is_locked_for(user) -> bool:
+    """Like ko_is_locked(), but a late entrant stays editable until their own
+    personal deadline instead of the shared pool lock."""
+    deadline = ko_late_deadline(user)
+    if deadline is not None:
+        return datetime.now(timezone.utc) >= deadline
+    return ko_is_locked()
 
 
 def current_user():

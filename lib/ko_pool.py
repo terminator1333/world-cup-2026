@@ -18,7 +18,7 @@ from __future__ import annotations
 from datetime import date as _date
 
 from .assets import find_asset, slugify
-from .data import KO_POOL_POINTS, KO_POOL_ROUNDS, ko_r32_ties, ko_round_meta
+from .data import KO_POOL_POINTS, KO_POOL_ROUNDS, ko_r32_ties, ko_round_meta, match_kickoff
 from .flags import flag_img
 
 
@@ -39,6 +39,12 @@ def r32_slots() -> list[dict]:
 def team_slot_map() -> dict:
     """{team_name: slot dict} — lets later rounds show a team's group seed."""
     return {s["team"]: s for s in r32_slots()}
+
+
+def r32_kickoff(i: int):
+    """Kickoff datetime for the i-th Round-of-32 tie (bracket order), or None."""
+    ties = ko_r32_ties()
+    return match_kickoff(ties[i]) if i < len(ties) else None
 
 
 def derive_winner(a_team: str, b_team: str, score: dict | None):

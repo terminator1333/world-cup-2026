@@ -68,6 +68,16 @@ if top[1].button("Sign out", use_container_width=True):
 
 pid = user["id"]
 
+# Late entrants get their own grace window past the normal pool lock. Any tie
+# that already kicked off before their personal deadline scores 0 for them
+# regardless of the pick (see lib.scoring — no credit for hindsight picks).
+late_deadline = util.ko_late_deadline(user)
+my_locked = util.ko_is_locked_for(user)
+if late_deadline and not my_locked:
+    st.info(f"⏳ **Late entry** — you can fill in your bracket until "
+            f"**{late_deadline:%b %d, %Y · %H:%M %Z}**. Ties that already kicked off "
+            f"score 0 for you either way; only ties still to come count.")
+
 # --------------------------------------------------------------------------- #
 # The bracket — predict a scoreline for every tie; winners cascade to the final
 # --------------------------------------------------------------------------- #
@@ -77,7 +87,7 @@ st.caption("Enter a scoreline for each tie — the winner advances (pick the pen
            "Right team through a round scores; nailing the exact score earns a bonus.")
 
 saved = db.get_prediction(pid, "ko_pool") or {}
-payload = ko_pool.render_bracket_editor(saved, LOCKED, prefix=f"kop_{pid}")
+payload = ko_pool.render_bracket_editor(saved, my_locked, prefix=f"kop_{pid}")
 
 champ = payload.get("champion")
 if champ:
@@ -88,9 +98,9 @@ if champ:
     )
 
 st.write("")
-if st.button("💾 Save my knockout pool bracket", disabled=LOCKED, key="save_ko_pool",
+if st.button("💾 Save my knockout pool bracket", disabled=my_locked, key="save_ko_pool",
              use_container_width=True):
-    if LOCKED:
+    if my_locked:
         st.error("The knockout pool is locked.")
     else:
         db.save_prediction(pid, "ko_pool", payload)

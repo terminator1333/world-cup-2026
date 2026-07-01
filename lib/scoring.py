@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from .data import (KNOCKOUT_ROUNDS, CHAMPION_POINTS, KO_POOL_POINTS,
                    KO_POOL_EXACT_SCORE)
-from .ko_pool import advancing_sets, bracket_matches
+from .ko_pool import advancing_sets, bracket_matches, r32_kickoff
 
 # --- point values ---------------------------------------------------------- #
 PTS_GAME_OUTCOME = 3
@@ -166,27 +166,44 @@ KO_POOL_CATEGORY_LABELS = {
 }
 
 
-def score_ko_pool_breakdown(payload: dict, results: dict) -> dict:
+def score_ko_pool_breakdown(payload: dict, results: dict, zero_before=None) -> dict:
     """Per-round points for one knockout-pool entry. Each round scores per team
     that the player correctly sent through; plus the champion and per-tie exact
-    scorelines (only when the predicted tie is the same matchup as reality)."""
+    scorelines (only when the predicted tie is the same matchup as reality).
+
+    `zero_before`, if given, is a tz-aware cutoff for late entrants: any R32 tie
+    that already kicked off before it earns no credit either way, since a pick
+    made after the result was known isn't a real prediction."""
     out = {"r32": 0, "r16": 0, "qf": 0, "sf": 0, "champion": 0, "exact": 0}
     actual = results.get(("ko_pool", "bracket"))
     if not actual or not payload:
         return {**out, "total": 0}
 
+    def is_stale(round_key: str, idx: int) -> bool:
+        if zero_before is None or round_key != "r32":
+            return False
+        ko = r32_kickoff(idx)
+        return ko is not None and ko < zero_before
+
     # Only count ties the admin has flagged "played" — so future rounds (which the
     # editor pre-fills with placeholder winners) never score prematurely.
     adv = advancing_sets(actual, require_played=True)
+    am, pm = bracket_matches(actual), bracket_matches(payload)
+    if zero_before is not None:
+        stale_winners = {t["winner"] for i, t in enumerate(am.get("r32", []))
+                         if t.get("winner") and is_stale("r32", i)}
+        adv = {**adv, "r32": adv["r32"] - stale_winners}
+
     for key in ("r32", "r16", "qf", "sf"):
         out[key] = KO_POOL_POINTS[key] * len(adv[key] & set(payload.get(key) or []))
     if payload.get("champion") and payload["champion"] in adv["champion"]:
         out["champion"] = KO_POOL_POINTS["champion"]
 
-    am, pm = bracket_matches(actual), bracket_matches(payload)
     for key, aties in am.items():
         pties = pm.get(key, [])
         for i, at in enumerate(aties):
+            if is_stale(key, i):
+                continue
             asc = at.get("score")
             if not asc or not asc.get("played") or i >= len(pties):
                 continue
@@ -203,18 +220,22 @@ def score_ko_pool_breakdown(payload: dict, results: dict) -> dict:
     return out
 
 
-def score_ko_pool(payload: dict, results: dict) -> int:
-    return score_ko_pool_breakdown(payload, results)["total"]
+def score_ko_pool(payload: dict, results: dict, zero_before=None) -> int:
+    return score_ko_pool_breakdown(payload, results, zero_before)["total"]
 
 
 def ko_pool_leaderboard(all_predictions: list[dict], participants: list[dict],
-                        results: dict) -> list[dict]:
-    """Standalone knockout-pool ranking (independent of the full-tournament board)."""
+                        results: dict, late_deadlines: dict | None = None) -> list[dict]:
+    """Standalone knockout-pool ranking (independent of the full-tournament board).
+
+    `late_deadlines`, if given, is {participant_id: zero_before_datetime} for late
+    entrants — see score_ko_pool_breakdown."""
+    late_deadlines = late_deadlines or {}
     by_pid = {row["participant_id"]: row["payload"]
               for row in all_predictions if row["category"] == "ko_pool"}
     table = []
     for p in participants:
-        bd = score_ko_pool_breakdown(by_pid.get(p["id"]), results)
+        bd = score_ko_pool_breakdown(by_pid.get(p["id"]), results, late_deadlines.get(p["id"]))
         table.append({"name": p["name"], "total": bd["total"], "breakdown": bd,
                       "played": p["id"] in by_pid})
     table.sort(key=lambda r: (-r["total"], r["name"].lower()))
